@@ -171,12 +171,13 @@ export default function CheckoutPage({ cartProduct, cartQuantity }) {
             );
             const confirmPayload = await confirmResponse.json();
             if (!confirmResponse.ok || !confirmPayload.ok) {
-              reject(new Error(confirmPayload.message || "Payment verification failed"));
+              const errorMsg = confirmPayload.error || confirmPayload.message || "Payment verification failed";
+              reject(new Error(errorMsg));
               return;
             }
             resolve(confirmPayload.order.orderId);
-          } catch (_error) {
-            reject(new Error("Unable to verify Razorpay payment"));
+          } catch (error) {
+            reject(new Error(error.message || "Unable to verify Razorpay payment"));
           }
         },
         modal: {

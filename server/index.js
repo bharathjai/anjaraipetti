@@ -321,7 +321,7 @@ function isBlank(value) {
   return !value || String(value).trim().length === 0;
 }
 
-function validatePayload(payload) {
+function validatePayload(payload, isRazorpayConfirm = false) {
   const errors = {};
   const { customer = {}, address = {}, payment = {}, quantity, productId } = payload || {};
   const product = getProductById(productId);
@@ -330,12 +330,16 @@ function validatePayload(payload) {
   if (!product) errors.productId = "Invalid product";
   if (Number.isNaN(qty) || qty < 1) errors.quantity = "Invalid quantity";
 
-  if (!Number.isNaN(qty) && cartState.productId !== productId) {
-    errors.quantity = "Cart contains a different product";
+  // Skip cart validation for Razorpay confirmation since signature already verified the payment
+  if (!isRazorpayConfirm) {
+    if (!Number.isNaN(qty) && cartState.productId !== productId) {
+      errors.quantity = "Cart contains a different product";
+    }
+    if (!Number.isNaN(qty) && qty > cartState.quantity) {
+      errors.quantity = "Quantity exceeds cart";
+    }
   }
-  if (!Number.isNaN(qty) && qty > cartState.quantity) {
-    errors.quantity = "Quantity exceeds cart";
-  }
+  
   if (product && !Number.isNaN(qty) && qty > Number(inventoryByProduct[product.id] ?? 0)) {
     errors.quantity = "Out of stock";
   }
@@ -515,7 +519,7 @@ app.post("/api/orders/razorpay/confirm", async (req, res) => {
     quantity,
     productId,
     payment: { method: "razorpay" }
-  });
+  }, true);
 
   if (!razorpayOrderId || !razorpayPaymentId || !razorpaySignature) {
     errors.razorpay = "Missing Razorpay payment details";
@@ -557,8 +561,10 @@ app.post("/api/orders/razorpay/confirm", async (req, res) => {
     });
     processedPayments.add(razorpayPaymentId);
     return res.json({ ok: true, order });
-  } catch (_error) {
-    return res.status(500).json({ ok: false, message: "Unable to confirm order" });
+  } catch (error) {
+    // eslint-disable-next-line no-console
+    console.error("Order confirmation error:", error.message, error);
+    return res.status(500).json({ ok: false, message: "Unable to confirm order", error: error.message });
   }
 });
 
