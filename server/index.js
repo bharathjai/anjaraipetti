@@ -255,10 +255,10 @@ async function nextInvoiceNumber() {
     return `INV-${year}-${String(sequence).padStart(3, "0")}`;
   }
 
-  const state = await AppStateModel.findOneAndUpdate(
+  // First ensure document exists
+  await AppStateModel.findOneAndUpdate(
     { key: "global" },
     {
-      $inc: { invoiceSequence: 1 },
       $setOnInsert: {
         key: "global",
         cart: { productId: "", quantity: 0 },
@@ -266,7 +266,14 @@ async function nextInvoiceNumber() {
         invoiceSequence: 0
       }
     },
-    { upsert: true, new: true }
+    { upsert: true }
+  );
+
+  // Then increment invoiceSequence
+  const state = await AppStateModel.findOneAndUpdate(
+    { key: "global" },
+    { $inc: { invoiceSequence: 1 } },
+    { new: true }
   ).lean();
 
   sequence = Math.max(1, Number(state?.invoiceSequence) || 1);
