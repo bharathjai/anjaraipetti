@@ -119,6 +119,7 @@ export default function CheckoutPage({ cartProduct, cartQuantity }) {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
+        productId: cartProduct.id,
         quantity: cartQuantity
       })
     });
