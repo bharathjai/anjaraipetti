@@ -23,7 +23,7 @@ const io = new Server(httpServer, {
 });
 
 const PRODUCTS = {
-  "biryani-masala": { id: "biryani-masala", name: "Anjaraipetti Biryani Masala", price: 599, stock: 120 },
+  "biryani-masala": { id: "biryani-masala", name: "Anjaraipetti Biryani Masala", price: 1, stock: 120 },
   "chilli-masala": { id: "chilli-masala", name: "Anjaraipetti Chilli Masala", price: 349, stock: 140 },
   "chicken-masala": { id: "chicken-masala", name: "Anjaraipetti Chicken Masala", price: 399, stock: 130 },
   "mutton-masala": { id: "mutton-masala", name: "Anjaraipetti Mutton Masala", price: 449, stock: 110 }

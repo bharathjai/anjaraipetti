@@ -2,7 +2,7 @@ export const products = [
   {
     id: "biryani-masala",
     name: "Anjaraipetti Biryani Masala",
-    price: 599,
+    price: 1,
     subtitle: "Signature dum biryani spice from Tamil kitchens",
     description:
       "A bold, layered biryani masala crafted for dum cooking, rich gravies, and strong restaurant-style aroma with balanced heat.",
