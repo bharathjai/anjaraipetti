@@ -72,9 +72,7 @@ export default function CartPage({ cartProduct, cartQuantity, onUpdateQuantity }
   }
 
   const subtotal = cartProduct.price * cartQuantity;
-  const tax = Number((subtotal * 0.05).toFixed(2));
-  const shipping = cartQuantity > 0 ? 99 : 0;
-  const total = subtotal + tax + shipping;
+  const total = subtotal;
 
   return (
     <section className="relative isolate mx-auto w-full max-w-6xl overflow-hidden px-6 pb-20 pt-12 md:px-10 md:pt-16">
@@ -132,15 +130,7 @@ export default function CartPage({ cartProduct, cartQuantity, onUpdateQuantity }
               <span>Subtotal</span>
               <span>{formatINR(subtotal)}</span>
             </div>
-            <div className="flex items-center justify-between">
-              <span>Shipping</span>
-              <span>{formatINR(shipping)}</span>
-            </div>
-            <div className="flex items-center justify-between">
-              <span>Tax (5%)</span>
-              <span>{formatINR(tax)}</span>
-            </div>
-            <div className="mt-3 border-t border-truffle/10 pt-3 text-lg font-semibold">
+          <div className="mt-3 border-t border-truffle/10 pt-3 text-lg font-semibold">
               <div className="flex items-center justify-between">
                 <span>Grand Total</span>
                 <span>{formatINR(total)}</span>

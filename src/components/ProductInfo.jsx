@@ -45,7 +45,7 @@ export default function ProductInfo({ product }) {
           <p className="mt-1 font-display text-3xl text-saffron sm:text-4xl">{product.price}</p>
         </div>
         <p className="max-w-[12rem] text-right text-xs uppercase tracking-[0.16em] text-cream/50">
-          Free shipping across India on orders over INR 999
+
         </p>
       </div>
 
