@@ -43,9 +43,7 @@ export default function CheckoutPage({ cartProduct, cartQuantity }) {
   const [confirmedOrderId, setConfirmedOrderId] = useState("");
 
   const subtotal = useMemo(() => (cartProduct ? cartProduct.price * cartQuantity : 0), [cartProduct, cartQuantity]);
-  const tax = Number((subtotal * 0.05).toFixed(2));
-  const shipping = cartQuantity > 0 ? 99 : 0;
-  const total = subtotal + tax + shipping;
+  const total = subtotal;
 
   if ((!cartProduct || cartQuantity < 1) && !isSubmitting) {
     return <Navigate to="/cart" replace />;
@@ -325,14 +323,6 @@ export default function CheckoutPage({ cartProduct, cartQuantity }) {
             <div className="flex items-center justify-between">
               <span>Subtotal</span>
               <span>{formatINR(subtotal)}</span>
-            </div>
-            <div className="flex items-center justify-between">
-              <span>Shipping</span>
-              <span>{formatINR(shipping)}</span>
-            </div>
-            <div className="flex items-center justify-between">
-              <span>Tax (5%)</span>
-              <span>{formatINR(tax)}</span>
             </div>
             <div className="border-t border-truffle/10 pt-3 text-lg font-semibold">
               <div className="flex items-center justify-between">

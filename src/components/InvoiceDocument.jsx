@@ -9,10 +9,7 @@ export default function InvoiceDocument({ order }) {
   const invoiceNumber = order.invoiceNumber || `INV-${createdDate.getFullYear()}-001`;
   const productName = order.productName || "Anjaraipetti Biryani Masala";
   const subtotal = Number(order.subtotal || 0);
-  const tax = Number(order.tax || 0);
-  const shipping = Number(order.shipping || 0);
-  const grandTotal = Number(order.grandTotal || order.total || subtotal + tax + shipping);
-  const taxPercent = Number(order.taxRate || 0.05) * 100;
+  const grandTotal = Number(order.grandTotal || order.total || subtotal);
 
   return (
     <div className="rounded-2xl border border-truffle/15 bg-white p-6 md:p-8">
@@ -78,14 +75,6 @@ export default function InvoiceDocument({ order }) {
         <div className="flex items-center justify-between">
           <span>Subtotal</span>
           <span>{formatINR(subtotal)}</span>
-        </div>
-        <div className="mt-2 flex items-center justify-between">
-          <span>Tax ({taxPercent.toFixed(0)}%)</span>
-          <span>{formatINR(tax)}</span>
-        </div>
-        <div className="mt-2 flex items-center justify-between">
-          <span>Shipping</span>
-          <span>{formatINR(shipping)}</span>
         </div>
         <div className="mt-3 border-t border-truffle/20 pt-3 text-base font-semibold text-cocoa">
           <div className="flex items-center justify-between">

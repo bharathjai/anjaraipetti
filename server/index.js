@@ -29,8 +29,6 @@ const PRODUCTS = {
   "mutton-masala": { id: "mutton-masala", name: "Anjaraipetti Mutton Masala", price: 449, stock: 110 }
 };
 
-const taxRate = 0.05;
-const shippingCharge = 99;
 const memoryOrders = new Map();
 const processedPayments = new Set();
 const mongoUri = process.env.MONGODB_URI || "";
@@ -55,9 +53,6 @@ const orderSchema = new mongoose.Schema(
     quantity: { type: Number, required: true },
     unitPrice: { type: Number, required: true },
     subtotal: { type: Number, required: true },
-    taxRate: { type: Number, required: true },
-    tax: { type: Number, required: true },
-    shipping: { type: Number, required: true },
     grandTotal: { type: Number, required: true },
     total: { type: Number, required: true },
     customer: {
@@ -377,9 +372,7 @@ async function createFinalOrder({ productId, quantity, customer, address, paymen
 
   const invoiceNumber = await nextInvoiceNumber();
   const subtotal = product.price * quantity;
-  const tax = Number((subtotal * taxRate).toFixed(2));
-  const shipping = quantity > 0 ? shippingCharge : 0;
-  const grandTotal = subtotal + tax + shipping;
+  const grandTotal = subtotal;
   const total = grandTotal;
   const orderId = `ANJ${Date.now().toString().slice(-8)}`;
 
@@ -391,9 +384,6 @@ async function createFinalOrder({ productId, quantity, customer, address, paymen
     quantity,
     unitPrice: product.price,
     subtotal,
-    taxRate,
-    tax,
-    shipping,
     grandTotal,
     total,
     customer,
@@ -489,9 +479,7 @@ app.post("/api/payments/razorpay/order", async (req, res) => {
 
   try {
     const subtotal = product.price * quantity;
-    const tax = Number((subtotal * taxRate).toFixed(2));
-    const shipping = quantity > 0 ? shippingCharge : 0;
-    const amount = Math.round((subtotal + tax + shipping) * 100);
+    const amount = Math.round(subtotal * 100);
     const razorpayOrder = await razorpayClient.orders.create({
       amount,
       currency: "INR",
