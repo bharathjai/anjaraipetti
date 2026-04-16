@@ -3,6 +3,7 @@ import { Navigate, Route, Routes, useLocation } from "react-router-dom";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { io } from "socket.io-client";
 import NavBar from "./components/NavBar";
+import Footer from "./components/Footer";
 import { SOCKET_URL } from "./config/runtime";
 import { products } from "./data/products";
 import AdminLoginPage from "./pages/AdminLoginPage";
@@ -18,27 +19,6 @@ const ingredients = [
   { title: "Stone-Ground Coriander", note: "Roasted body and freshness for masala base." },
   { title: "Black Pepper & Clove", note: "Sharp spice kick and warm slow-cook aroma." },
   { title: "Shahi Jeera & Fennel", note: "Fragrant finish for biryani, chicken, and mutton gravies." }
-];
-
-const reviews = [
-  {
-    name: "Raghavi M.",
-    city: "Chennai",
-    text: "My biryani aroma is now exactly like restaurant style.",
-    stars: 5
-  },
-  {
-    name: "Arvind S.",
-    city: "Bengaluru",
-    text: "The chilli masala has a perfect spicy kick for chicken fry.",
-    stars: 5
-  },
-  {
-    name: "Keerthi R.",
-    city: "Coimbatore",
-    text: "Biryani masala and chilli masala both are top quality.",
-    stars: 4
-  }
 ];
 
 function AmbientSpices() {
@@ -150,7 +130,6 @@ export default function App() {
                 <ProductPage
                   products={products}
                   ingredients={ingredients}
-                  reviews={reviews}
                   onAddToCart={addToCart}
                   availableMap={inventoryMap}
                   cartProductId={cart.productId}
@@ -178,6 +157,7 @@ export default function App() {
           </Routes>
         </motion.div>
       </AnimatePresence>
+      <Footer />
     </main>
   );
 }

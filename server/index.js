@@ -630,13 +630,16 @@ if (fs.existsSync(path.join(distPath, "index.html"))) {
 }
 
 io.on("connection", (socket) => {
+  // Each user gets their own cart (not global)
+  let userCart = { productId: null, quantity: 0 };
+
   socket.emit("cart:state", {
-    cart: { ...cartState },
-    quantity: cartState.quantity,
-    cartProductId: cartState.productId,
-    totalQuantity: cartState.quantity,
+    cart: { ...userCart },
+    quantity: userCart.quantity,
+    cartProductId: userCart.productId,
+    totalQuantity: userCart.quantity,
     inventory: { ...inventoryByProduct },
-    available: cartState.productId ? Number(inventoryByProduct[cartState.productId] ?? 0) : 0
+    available: userCart.productId ? Number(inventoryByProduct[userCart.productId] ?? 0) : 0
   });
 
   socket.on("cart:change", async ({ productId, delta }) => {
@@ -644,24 +647,31 @@ io.on("connection", (socket) => {
     const parsed = Number.parseInt(delta, 10);
     if (!product || Number.isNaN(parsed)) return;
 
-    if (cartState.productId !== product.id) {
-      cartState = {
+    if (userCart.productId !== product.id) {
+      userCart = {
         productId: product.id,
         quantity: clampQuantity(product.id, Math.max(0, parsed))
       };
     } else {
-      cartState = {
+      userCart = {
         productId: product.id,
-        quantity: clampQuantity(product.id, cartState.quantity + parsed)
+        quantity: clampQuantity(product.id, userCart.quantity + parsed)
       };
     }
 
-    if (cartState.quantity === 0) {
-      cartState.productId = null;
+    if (userCart.quantity === 0) {
+      userCart.productId = null;
     }
 
-    await persistState();
-    broadcastState();
+    // Send only to this user, not broadcast to all
+    socket.emit("cart:state", {
+      cart: { ...userCart },
+      quantity: userCart.quantity,
+      cartProductId: userCart.productId,
+      totalQuantity: userCart.quantity,
+      inventory: { ...inventoryByProduct },
+      available: userCart.productId ? Number(inventoryByProduct[userCart.productId] ?? 0) : 0
+    });
   });
 
   socket.on("cart:set", async ({ productId, quantity }) => {
@@ -670,13 +680,20 @@ io.on("connection", (socket) => {
     if (!product || Number.isNaN(parsed)) return;
 
     const nextQuantity = clampQuantity(product.id, Math.max(0, parsed));
-    cartState = {
+    userCart = {
       productId: nextQuantity > 0 ? product.id : null,
       quantity: nextQuantity
     };
 
-    await persistState();
-    broadcastState();
+    // Send only to this user, not broadcast to all
+    socket.emit("cart:state", {
+      cart: { ...userCart },
+      quantity: userCart.quantity,
+      cartProductId: userCart.productId,
+      totalQuantity: userCart.quantity,
+      inventory: { ...inventoryByProduct },
+      available: userCart.productId ? Number(inventoryByProduct[userCart.productId] ?? 0) : 0
+    });
   });
 });
 

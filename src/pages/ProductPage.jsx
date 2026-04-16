@@ -1,37 +1,35 @@
-import { motion, useMotionValue, useSpring } from "framer-motion";
+import { motion, useMotionValue, useSpring, AnimatePresence } from "framer-motion";
 import { useMemo, useState } from "react";
-import { Link, useParams } from "react-router-dom";
+import { Link, useParams, useNavigate } from "react-router-dom";
 import AddToCartButton from "../components/AddToCartButton";
 import { getProductById } from "../data/products";
-
-function StarLine({ count }) {
-  return (
-    <div className="flex gap-1 text-amber">
-      {Array.from({ length: 5 }, (_, index) => (
-        <span key={`${count}-${index}`} className={index < count ? "opacity-100" : "opacity-30"}>
-          *
-        </span>
-      ))}
-    </div>
-  );
-}
 
 export default function ProductPage({
   products,
   ingredients,
-  reviews,
   onAddToCart,
   availableMap,
   cartProductId
 }) {
+  const navigate = useNavigate();
   const { productId } = useParams();
   const product = useMemo(() => getProductById(productId), [productId]);
+  const [direction, setDirection] = useState(0);
   const rotateX = useMotionValue(0);
   const rotateY = useMotionValue(0);
   const tiltX = useSpring(rotateX, { stiffness: 180, damping: 22, mass: 0.8 });
   const tiltY = useSpring(rotateY, { stiffness: 180, damping: 22, mass: 0.8 });
   const [quantity, setQuantity] = useState(1);
   const available = Number(availableMap?.[product.id] ?? 0);
+
+  const swipeToProduct = (newDirection) => {
+    setDirection(newDirection);
+    const currentIndex = products.findIndex((p) => p.id === product.id);
+    let nextIndex = currentIndex + newDirection;
+    if (nextIndex < 0) nextIndex = products.length - 1;
+    if (nextIndex >= products.length) nextIndex = 0;
+    navigate(`/product/${products[nextIndex].id}`);
+  };
 
   const handlePointerMove = (event) => {
     const rect = event.currentTarget.getBoundingClientRect();
@@ -80,14 +78,30 @@ export default function ProductPage({
           className="relative"
         >
           <div className="absolute -inset-8 rounded-[2.5rem] bg-gradient-to-r from-amber/20 to-transparent blur-2xl" />
-          <motion.div
-            onMouseMove={handlePointerMove}
-            onMouseLeave={resetTilt}
-            style={{ rotateX: tiltX, rotateY: tiltY, transformStyle: "preserve-3d", perspective: 1200 }}
-            className="relative rounded-[2.3rem] border border-truffle/15 bg-white/70 p-5 shadow-luxe backdrop-blur-xl"
-          >
-            <img src={product.image} alt={product.name} className="aspect-[4/5] w-full rounded-[2rem] object-cover shadow-halo" />
-          </motion.div>
+          <AnimatePresence mode="wait">
+            <motion.div
+              key={product.id}
+              onMouseMove={handlePointerMove}
+              onMouseLeave={resetTilt}
+              drag="x"
+              dragElastic={0.2}
+              dragConstraints={{ left: 0, right: 0 }}
+              onDragEnd={(e, info) => {
+                if (Math.abs(info.offset.x) > 100) {
+                  swipeToProduct(info.offset.x > 0 ? -1 : 1);
+                }
+              }}
+              initial={{ opacity: 0, x: direction > 0 ? 100 : -100 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: direction > 0 ? -100 : 100 }}
+              transition={{ type: "spring", stiffness: 300, damping: 30 }}
+              style={{ rotateX: tiltX, rotateY: tiltY, transformStyle: "preserve-3d", perspective: 1200 }}
+              className="relative cursor-grab rounded-[2.3rem] border border-truffle/15 bg-white/70 p-5 shadow-luxe backdrop-blur-xl active:cursor-grabbing"
+            >
+              <img src={product.image} alt={product.name} className="aspect-[4/5] w-full rounded-[2rem] object-cover shadow-halo" />
+              <p className="mt-4 text-center text-xs text-truffle/50">← Swipe or drag to browse →</p>
+            </motion.div>
+          </AnimatePresence>
         </motion.div>
 
         <motion.div
@@ -171,36 +185,6 @@ export default function ProductPage({
             >
               <h3 className="font-display text-2xl text-truffle">{ingredient.title}</h3>
               <p className="mt-2 text-truffle/80">{ingredient.note}</p>
-            </motion.article>
-          ))}
-        </div>
-      </section>
-
-      <section className="mt-16">
-        <motion.div
-          initial={{ opacity: 0, y: 22 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true, amount: 0.4 }}
-          transition={{ duration: 0.5 }}
-        >
-          <p className="text-xs uppercase tracking-[0.32em] text-cocoa/70">Reviews</p>
-          <h2 className="mt-2 font-display text-4xl text-espresso">Community feedback</h2>
-        </motion.div>
-        <div className="mt-6 grid gap-4 md:grid-cols-3">
-          {reviews.map((review, idx) => (
-            <motion.article
-              key={review.name}
-              initial={{ opacity: 0, y: 24 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              whileHover={{ y: -8 }}
-              viewport={{ once: true, amount: 0.4 }}
-              transition={{ duration: 0.45, delay: idx * 0.08 }}
-              className="rounded-2xl border border-truffle/10 bg-white/70 p-6 shadow-[0_20px_40px_rgba(90,50,25,0.08)]"
-            >
-              <StarLine count={review.stars} />
-              <p className="mt-3 text-truffle/85">"{review.text}"</p>
-              <p className="mt-5 font-display text-2xl text-truffle">{review.name}</p>
-              <p className="text-xs uppercase tracking-[0.2em] text-cocoa/65">{review.city}</p>
             </motion.article>
           ))}
         </div>
