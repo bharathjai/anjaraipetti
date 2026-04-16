@@ -80,6 +80,10 @@ export default function App() {
     };
   }, []);
 
+  useEffect(() => {
+    window.scrollTo({ top: 0, left: 0, behavior: "auto" });
+  }, [location.pathname]);
+
   const addToCart = (productId, count = 1) => {
     const delta = Math.max(1, Number.parseInt(count, 10) || 1);
     if (socketRef.current?.connected) {
