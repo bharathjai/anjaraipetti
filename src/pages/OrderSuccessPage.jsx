@@ -75,7 +75,7 @@ export default function OrderSuccessPage() {
           <p className="text-lg text-red-700">{error || "Order not found"}</p>
           <Link
             to="/product"
-            className="mt-6 inline-flex rounded-full bg-truffle px-7 py-3 text-sm font-semibold uppercase tracking-[0.2em] text-porcelain"
+            className="btn-hover mt-6 inline-flex rounded-full bg-truffle px-7 py-3 text-sm font-semibold uppercase tracking-[0.2em] text-porcelain"
           >
             Continue Shopping
           </Link>
@@ -108,7 +108,7 @@ export default function OrderSuccessPage() {
           </button>
           <Link
             to="/product"
-            className="rounded-full border border-truffle/20 bg-white px-7 py-3 text-sm font-semibold uppercase tracking-[0.2em] text-truffle"
+            className="btn-hover rounded-full border border-truffle/20 bg-white px-7 py-3 text-sm font-semibold uppercase tracking-[0.2em] text-truffle"
           >
             Shop More
           </Link>

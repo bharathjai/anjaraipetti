@@ -29,3 +29,41 @@ body {
   background-size: 3px 3px;
   mix-blend-mode: multiply;
 }
+
+@layer base {
+  button {
+    transition-property: transform, box-shadow, filter, background-color, border-color, color, opacity;
+    transition-duration: 260ms;
+    transition-timing-function: cubic-bezier(0.22, 1, 0.36, 1);
+    will-change: transform;
+  }
+
+  button:hover:not(:disabled) {
+    transform: translateY(-2px);
+    box-shadow: 0 10px 22px rgba(90, 50, 25, 0.2);
+    filter: saturate(1.04);
+  }
+
+  button:active:not(:disabled) {
+    transform: translateY(0) scale(0.98);
+  }
+}
+
+@layer components {
+  .btn-hover {
+    transition-property: transform, box-shadow, filter, background-color, border-color, color, opacity;
+    transition-duration: 260ms;
+    transition-timing-function: cubic-bezier(0.22, 1, 0.36, 1);
+    will-change: transform;
+  }
+
+  .btn-hover:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 10px 22px rgba(90, 50, 25, 0.2);
+    filter: saturate(1.04);
+  }
+
+  .btn-hover:active {
+    transform: translateY(0) scale(0.98);
+  }
+}

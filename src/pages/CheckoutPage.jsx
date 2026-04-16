@@ -341,7 +341,7 @@ export default function CheckoutPage({ cartProduct, cartQuantity }) {
           </button>
           <Link
             to="/cart"
-            className="mt-3 inline-flex w-full justify-center rounded-full border border-truffle/20 bg-white px-6 py-3 text-sm font-semibold uppercase tracking-[0.2em] text-truffle transition hover:bg-almond"
+            className="btn-hover mt-3 inline-flex w-full justify-center rounded-full border border-truffle/20 bg-white px-6 py-3 text-sm font-semibold uppercase tracking-[0.2em] text-truffle transition hover:bg-almond"
           >
             Back To Cart
           </Link>

@@ -62,7 +62,7 @@ export default function CartPage({ cartProduct, cartQuantity, onUpdateQuantity }
           </p>
           <Link
             to="/product/biryani-masala"
-            className="mt-8 inline-flex rounded-full bg-truffle px-8 py-3 text-sm font-semibold uppercase tracking-[0.2em] text-porcelain transition hover:bg-espresso"
+            className="btn-hover mt-8 inline-flex rounded-full bg-truffle px-8 py-3 text-sm font-semibold uppercase tracking-[0.2em] text-porcelain transition hover:bg-espresso"
           >
             Go To Product
           </Link>
@@ -139,13 +139,13 @@ export default function CartPage({ cartProduct, cartQuantity, onUpdateQuantity }
           </div>
           <Link
             to="/checkout"
-            className="mt-7 inline-flex w-full justify-center rounded-full bg-truffle px-6 py-3 text-sm font-semibold uppercase tracking-[0.2em] text-porcelain transition hover:bg-espresso"
+            className="btn-hover mt-7 inline-flex w-full justify-center rounded-full bg-truffle px-6 py-3 text-sm font-semibold uppercase tracking-[0.2em] text-porcelain transition hover:bg-espresso"
           >
             Proceed To Checkout
           </Link>
           <Link
             to={`/product/${cartProduct.id}`}
-            className="mt-3 inline-flex w-full justify-center rounded-full border border-truffle/20 bg-white px-6 py-3 text-sm font-semibold uppercase tracking-[0.2em] text-truffle transition hover:bg-almond"
+            className="btn-hover mt-3 inline-flex w-full justify-center rounded-full border border-truffle/20 bg-white px-6 py-3 text-sm font-semibold uppercase tracking-[0.2em] text-truffle transition hover:bg-almond"
           >
             Continue Shopping
           </Link>

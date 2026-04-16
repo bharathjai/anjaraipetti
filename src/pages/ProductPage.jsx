@@ -59,7 +59,7 @@ export default function ProductPage({
           <Link
             key={item.id}
             to={`/product/${item.id}`}
-            className={`rounded-full border px-4 py-2 text-xs font-semibold uppercase tracking-[0.16em] ${
+            className={`btn-hover rounded-full border px-4 py-2 text-xs font-semibold uppercase tracking-[0.16em] ${
               item.id === product.id
                 ? "border-cocoa bg-cocoa text-porcelain"
                 : "border-truffle/20 bg-white/75 text-truffle"

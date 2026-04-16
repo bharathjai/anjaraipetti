@@ -94,7 +94,7 @@ export default function ProductCarousel({ products }) {
               </div>
               <Link
                 to={`/product/${currentProduct.id}`}
-                className="mt-5 inline-flex rounded-full bg-truffle px-6 py-2 text-sm font-semibold uppercase tracking-[0.2em] text-porcelain transition hover:bg-espresso"
+                className="btn-hover mt-5 inline-flex rounded-full bg-truffle px-6 py-2 text-sm font-semibold uppercase tracking-[0.2em] text-porcelain transition hover:bg-espresso"
               >
                 View Details
               </Link>

@@ -9,7 +9,7 @@ export const products = [
     size: "120 g",
     heatLevel: "Medium Hot",
     origin: "Karaikudi, Tamil Nadu",
-    image: "/images/masala-product.svg"
+    image: "/images/biryani-masala.jpg"
   },
   {
     id: "chilli-masala",
@@ -21,7 +21,7 @@ export const products = [
     size: "100 g",
     heatLevel: "Hot",
     origin: "Virudhunagar, Tamil Nadu",
-    image: "/images/masala-product.svg"
+    image: "/images/chilli-powder.jpg"
   },
   {
     id: "chicken-masala",
@@ -33,7 +33,7 @@ export const products = [
     size: "120 g",
     heatLevel: "Medium",
     origin: "Madurai, Tamil Nadu",
-    image: "/images/masala-product.svg"
+    image: "/images/chicken-masala.jpg"
   },
   {
     id: "mutton-masala",
@@ -45,7 +45,7 @@ export const products = [
     size: "120 g",
     heatLevel: "Medium Bold",
     origin: "Chettinad, Tamil Nadu",
-    image: "/images/masala-product.svg"
+    image: "/images/mutton-masala.jpg"
   }
 ];
 
