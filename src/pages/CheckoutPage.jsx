@@ -1,5 +1,5 @@
 import { AnimatePresence, motion } from "framer-motion";
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { Link, Navigate, useNavigate } from "react-router-dom";
 import { API_BASE_URL } from "../config/runtime";
 
@@ -36,6 +36,7 @@ const initialForm = {
 
 export default function CheckoutPage({ cartProduct, cartQuantity }) {
   const navigate = useNavigate();
+  const formRef = useRef(null);
   const [form, setForm] = useState(initialForm);
   const [errors, setErrors] = useState({});
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -63,6 +64,18 @@ export default function CheckoutPage({ cartProduct, cartQuantity }) {
     if (!form.state.trim()) next.state = "State is required";
     if (!/^\d{6}$/.test(form.pincode.trim())) next.pincode = "Enter valid 6-digit pincode";
     return next;
+  };
+
+  const focusFirstInvalidField = (errorBag) => {
+    if (!errorBag || typeof errorBag !== "object") return;
+    const priority = ["customerName", "phone", "line1", "addressLine1", "city", "state", "pincode"];
+    const firstErrorKey = priority.find((key) => errorBag[key]) || Object.keys(errorBag)[0];
+    if (!firstErrorKey) return;
+    const inputName = firstErrorKey === "addressLine1" ? "line1" : firstErrorKey;
+    const field = formRef.current?.querySelector(`[name="${inputName}"]`);
+    if (!field) return;
+    field.focus({ preventScroll: true });
+    field.scrollIntoView({ behavior: "smooth", block: "center" });
   };
 
   const customer = {
@@ -103,7 +116,9 @@ export default function CheckoutPage({ cartProduct, cartQuantity }) {
     });
     const payload = await response.json();
     if (!response.ok || !payload.ok) {
-      setErrors(payload.errors || {});
+      const nextErrors = payload.errors || {};
+      setErrors(nextErrors);
+      focusFirstInvalidField(nextErrors);
       throw new Error("Unable to place COD order");
     }
     await showConfirmationAndNavigate(payload.order.orderId);
@@ -195,7 +210,10 @@ export default function CheckoutPage({ cartProduct, cartQuantity }) {
     setServerError("");
     const nextErrors = validate();
     setErrors(nextErrors);
-    if (Object.keys(nextErrors).length > 0) return;
+    if (Object.keys(nextErrors).length > 0) {
+      focusFirstInvalidField(nextErrors);
+      return;
+    }
 
     try {
       setIsSubmitting(true);
@@ -221,7 +239,7 @@ export default function CheckoutPage({ cartProduct, cartQuantity }) {
         Checkout
       </motion.h1>
 
-      <form onSubmit={handleSubmit} className="mt-8 grid gap-6 lg:grid-cols-[1.2fr_0.8fr]">
+      <form ref={formRef} onSubmit={handleSubmit} className="mt-8 grid gap-6 lg:grid-cols-[1.2fr_0.8fr]">
         <motion.div
           initial={{ opacity: 0, y: 18 }}
           animate={{ opacity: 1, y: 0 }}
