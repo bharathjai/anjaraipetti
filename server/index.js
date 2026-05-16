@@ -10,15 +10,7 @@ import { Server } from "socket.io";
 import jwt from "jsonwebtoken";
 import mongoose from "mongoose";
 import Razorpay from "razorpay";
-import nodemailer from "nodemailer";
-import dns from "node:dns";
-import { promisify } from "node:util";
 import { generateInvoicePDF } from "./pdfGenerator.js";
-
-const resolve4 = promisify(dns.resolve4);
-
-// Force IPv4 for Nodemailer to prevent ENETUNREACH on Render's IPv6-less containers
-dns.setDefaultResultOrder("ipv4first");
 
 const app = express();
 app.use(cors());
@@ -118,51 +110,118 @@ const razorpayKeySecret = process.env.RAZORPAY_KEY_SECRET || "";
 const razorpayClient =
   razorpayKeyId && razorpayKeySecret
     ? new Razorpay({
-        key_id: razorpayKeyId,
-        key_secret: razorpayKeySecret
-      })
+      key_id: razorpayKeyId,
+      key_secret: razorpayKeySecret
+    })
     : null;
 
 
 
+/**
+ * Obtain a short-lived Gmail OAuth2 access token using the refresh token grant.
+ * All traffic goes over HTTPS (port 443) — works on Render's free tier which
+ * blocks outbound SMTP ports 465 and 587.
+ */
+async function getGmailAccessToken() {
+  const params = new URLSearchParams({
+    client_id: process.env.GMAIL_OAUTH_CLIENT_ID || "",
+    client_secret: process.env.GMAIL_OAUTH_CLIENT_SECRET || "",
+    refresh_token: process.env.GMAIL_OAUTH_REFRESH_TOKEN || "",
+    grant_type: "refresh_token"
+  });
+
+  const res = await fetch("https://oauth2.googleapis.com/token", {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: params.toString()
+  });
+
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(`OAuth2 token exchange failed: ${res.status} ${text}`);
+  }
+
+  const { access_token } = await res.json();
+  return access_token;
+}
+
 async function sendInvoiceEmail(order) {
-  if (!process.env.GMAIL_USER || !process.env.GOOGLE_CLIENT_ID || !process.env.GOOGLE_REFRESH_TOKEN) {
+  const oauthReady =
+    process.env.GMAIL_OAUTH_CLIENT_ID &&
+    process.env.GMAIL_OAUTH_CLIENT_SECRET &&
+    process.env.GMAIL_OAUTH_REFRESH_TOKEN &&
+    process.env.GMAIL_USER;
+
+  if (!oauthReady) {
     // eslint-disable-next-line no-console
-    console.log("OAuth2 credentials not fully set. Skipping email dispatch.");
+    console.log("Gmail OAuth2 env vars not set. Skipping email dispatch.");
     return;
   }
+
   try {
     const pdfBuffer = await generateInvoicePDF(order);
-    const toEmails = [order.customer.email, adminEmail].filter(Boolean).join(", ");
-    
-    if (!toEmails) return;
+    const toEmails = [order.customer.email, adminEmail].filter(Boolean);
+    if (toEmails.length === 0) return;
 
-    const mailOptions = {
-      from: `"Anjaraipetti" <${process.env.GMAIL_USER}>`,
-      to: toEmails,
-      subject: `Invoice for your Anjaraipetti order: ${order.orderId}`,
-      text: `Hello ${order.customer.name},\n\nThank you for your purchase! Please find your invoice attached as a PDF.\n\nOrder ID: ${order.orderId}\nTotal: INR ${order.grandTotal}\n\nBest regards,\nAnjaraipetti`,
-      attachments: [
-        {
-          filename: `Invoice_${order.invoiceNumber}.pdf`,
-          content: pdfBuffer
-        }
-      ]
-    };
+    const accessToken = await getGmailAccessToken();
 
-    // Using OAuth2 completely bypasses all SMTP firewalls (it uses port 443 under the hood via Google APIs if configured, or authenticates via XOAUTH2)
-    const transporter = nodemailer.createTransport({
-      service: "gmail",
-      auth: {
-        type: "OAuth2",
-        user: process.env.GMAIL_USER,
-        clientId: process.env.GOOGLE_CLIENT_ID,
-        clientSecret: process.env.GOOGLE_CLIENT_SECRET,
-        refreshToken: process.env.GOOGLE_REFRESH_TOKEN,
-      }
+    // Build a MIME message manually and send via Gmail REST API (HTTPS port 443).
+    // This completely avoids nodemailer's SMTP transport which Render blocks.
+    const boundary = `boundary_${crypto.randomBytes(16).toString("hex")}`;
+    const pdfBase64 = pdfBuffer.toString("base64");
+
+    const mimeLines = [
+      `From: "Anjaraipetti" <${process.env.GMAIL_USER}>`,
+      `To: ${toEmails.join(", ")}`,
+      `Subject: Invoice for your Anjaraipetti order: ${order.orderId}`,
+      "MIME-Version: 1.0",
+      `Content-Type: multipart/mixed; boundary="${boundary}"`,
+      "",
+      `--${boundary}`,
+      "Content-Type: text/plain; charset=UTF-8",
+      "",
+      `Hello ${order.customer.name},`,
+      "",
+      "Thank you for your purchase! Please find your invoice attached as a PDF.",
+      "",
+      `Order ID: ${order.orderId}`,
+      `Total: INR ${order.grandTotal}`,
+      "",
+      "Best regards,",
+      "Anjaraipetti",
+      "",
+      `--${boundary}`,
+      "Content-Type: application/pdf",
+      "Content-Transfer-Encoding: base64",
+      `Content-Disposition: attachment; filename="Invoice_${order.invoiceNumber}.pdf"`,
+      "",
+      pdfBase64,
+      "",
+      `--${boundary}--`
+    ];
+
+    const rawMime = mimeLines.join("\r\n");
+    // Gmail API requires base64url encoding (no +, /, or = padding)
+    const encodedMessage = Buffer.from(rawMime)
+      .toString("base64")
+      .replace(/\+/g, "-")
+      .replace(/\//g, "_")
+      .replace(/=+$/, "");
+
+    const gmailRes = await fetch("https://gmail.googleapis.com/gmail/v1/users/me/messages/send", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({ raw: encodedMessage })
     });
 
-    await transporter.sendMail(mailOptions);
+    if (!gmailRes.ok) {
+      const errText = await gmailRes.text();
+      throw new Error(`Gmail API error: ${gmailRes.status} ${errText}`);
+    }
+
     // eslint-disable-next-line no-console
     console.log(`Invoice email sent for order ${order.orderId}`);
   } catch (err) {
@@ -396,7 +455,7 @@ function validatePayload(payload, isRazorpayConfirm = false) {
   if (Number.isNaN(qty) || qty < 1) errors.quantity = "Invalid quantity";
 
 
-  
+
   if (product && !Number.isNaN(qty) && qty > Number(inventoryByProduct[product.id] ?? 0)) {
     errors.quantity = "Out of stock";
   }
