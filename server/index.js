@@ -126,9 +126,9 @@ const razorpayClient =
 
 
 async function sendInvoiceEmail(order) {
-  if (!process.env.GMAIL_USER || !process.env.GMAIL_PASS) {
+  if (!process.env.GMAIL_USER || !process.env.GOOGLE_CLIENT_ID || !process.env.GOOGLE_REFRESH_TOKEN) {
     // eslint-disable-next-line no-console
-    console.log("GMAIL_USER or GMAIL_PASS not set. Skipping email dispatch.");
+    console.log("OAuth2 credentials not fully set. Skipping email dispatch.");
     return;
   }
   try {
@@ -150,20 +150,15 @@ async function sendInvoiceEmail(order) {
       ]
     };
 
-    // Definitively force IPv4 by manually resolving the DNS and passing the IP address
-    const addresses = await resolve4("smtp.gmail.com");
-    const ipv4Host = addresses[0];
-
+    // Using OAuth2 completely bypasses all SMTP firewalls (it uses port 443 under the hood via Google APIs if configured, or authenticates via XOAUTH2)
     const transporter = nodemailer.createTransport({
-      host: ipv4Host,
-      port: 465,
-      secure: true,
-      tls: {
-        servername: "smtp.gmail.com" // Required for Google SSL validation when using raw IPs
-      },
+      service: "gmail",
       auth: {
-        user: process.env.GMAIL_USER || "",
-        pass: process.env.GMAIL_PASS || ""
+        type: "OAuth2",
+        user: process.env.GMAIL_USER,
+        clientId: process.env.GOOGLE_CLIENT_ID,
+        clientSecret: process.env.GOOGLE_CLIENT_SECRET,
+        refreshToken: process.env.GOOGLE_REFRESH_TOKEN,
       }
     });
 
