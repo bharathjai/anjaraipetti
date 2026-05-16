@@ -56,7 +56,15 @@ function AmbientSpices() {
 
 export default function App() {
   const location = useLocation();
-  const [cart, setCart] = useState({ productId: null, quantity: 0 });
+  const [cart, setCart] = useState(() => {
+    try {
+      const saved = localStorage.getItem("anjaraipetti_cart");
+      if (saved) return JSON.parse(saved);
+    } catch (e) {
+      console.error("Error parsing cart from localStorage:", e);
+    }
+    return { productId: null, quantity: 0 };
+  });
   const [inventoryMap, setInventoryMap] = useState({});
   const socketRef = useRef(null);
   const defaultProductId = products[0].id;
@@ -79,6 +87,10 @@ export default function App() {
       socket.disconnect();
     };
   }, []);
+
+  useEffect(() => {
+    localStorage.setItem("anjaraipetti_cart", JSON.stringify(cart));
+  }, [cart]);
 
   useEffect(() => {
     window.scrollTo({ top: 0, left: 0, behavior: "auto" });
@@ -153,7 +165,7 @@ export default function App() {
             />
             <Route
               path="/checkout"
-              element={<CheckoutPage cartProduct={cartProduct} cartQuantity={cartQuantity} />}
+              element={<CheckoutPage cartProduct={cartProduct} cartQuantity={cartQuantity} onClearCart={() => setCart({ productId: null, quantity: 0 })} />}
             />
             <Route path="/order/:orderId" element={<OrderSuccessPage />} />
             <Route path="/admin/login" element={<AdminLoginPage />} />

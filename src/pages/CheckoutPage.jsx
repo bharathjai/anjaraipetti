@@ -34,7 +34,7 @@ const initialForm = {
   paymentMethod: "razorpay"
 };
 
-export default function CheckoutPage({ cartProduct, cartQuantity }) {
+export default function CheckoutPage({ cartProduct, cartQuantity, onClearCart }) {
   const navigate = useNavigate();
   const formRef = useRef(null);
   const [form, setForm] = useState(initialForm);
@@ -94,6 +94,7 @@ export default function CheckoutPage({ cartProduct, cartQuantity }) {
 
   const showConfirmationAndNavigate = async (nextOrderId) => {
     setConfirmedOrderId(nextOrderId);
+    if (onClearCart) onClearCart();
     await new Promise((resolve) => {
       window.setTimeout(resolve, 1700);
     });

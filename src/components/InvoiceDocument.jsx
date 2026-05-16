@@ -19,12 +19,12 @@ export default function InvoiceDocument({ order }) {
 
       <div className="relative flex flex-wrap items-start justify-between gap-6 border-b border-truffle/20 pb-8">
         <div>
-          <div className="h-16 w-48 opacity-90 drop-shadow-sm">
+          <div className="mb-6 h-14 w-40 opacity-90 drop-shadow-sm">
             <BrandHatMark />
           </div>
-          <p className="mt-4 text-[0.65rem] font-bold uppercase tracking-[0.3em] text-cocoa/70">Namma Veetu</p>
-          <p className="mt-1 font-display text-4xl text-espresso drop-shadow-sm">Anjaraipetti</p>
-          <p className="mt-1 text-sm font-medium tracking-wide text-truffle/80">Premium Kitchen Essentials</p>
+          <p className="text-[0.65rem] font-bold uppercase tracking-[0.3em] text-cocoa/70">Namma Veetu</p>
+          <p className="mt-1 font-display text-4xl leading-normal text-espresso drop-shadow-sm">Anjaraipetti</p>
+          <p className="text-sm font-medium tracking-wide text-truffle/80">Premium Kitchen Essentials</p>
         </div>
         <div className="text-right">
           <p className="text-[0.65rem] font-bold uppercase tracking-[0.25em] text-cocoa/60">Invoice Number</p>
