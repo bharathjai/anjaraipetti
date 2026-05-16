@@ -156,9 +156,8 @@ async function sendInvoiceEmail(order) {
 
     const transporter = nodemailer.createTransport({
       host: ipv4Host,
-      port: 587,
-      secure: false,
-      requireTLS: true,
+      port: 465,
+      secure: true,
       tls: {
         servername: "smtp.gmail.com" // Required for Google SSL validation when using raw IPs
       },
