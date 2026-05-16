@@ -381,15 +381,7 @@ function validatePayload(payload, isRazorpayConfirm = false) {
   if (!product) errors.productId = "Invalid product";
   if (Number.isNaN(qty) || qty < 1) errors.quantity = "Invalid quantity";
 
-  // Skip cart validation for Razorpay confirmation since signature already verified the payment
-  if (!isRazorpayConfirm) {
-    if (!Number.isNaN(qty) && cartState.productId !== productId) {
-      errors.quantity = "Cart contains a different product";
-    }
-    if (!Number.isNaN(qty) && qty > cartState.quantity) {
-      errors.quantity = "Quantity exceeds cart";
-    }
-  }
+
   
   if (product && !Number.isNaN(qty) && qty > Number(inventoryByProduct[product.id] ?? 0)) {
     errors.quantity = "Out of stock";
@@ -531,7 +523,7 @@ app.post("/api/payments/razorpay/order", async (req, res) => {
   if (Number.isNaN(quantity) || quantity < 1) {
     return res.status(400).json({ ok: false, message: "Invalid quantity" });
   }
-  if (cartState.productId !== product.id || quantity > cartState.quantity || quantity > Number(inventoryByProduct[product.id] ?? 0)) {
+  if (quantity > Number(inventoryByProduct[product.id] ?? 0)) {
     return res.status(400).json({ ok: false, message: "Requested quantity unavailable" });
   }
 
