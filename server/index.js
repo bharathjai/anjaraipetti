@@ -10,6 +10,8 @@ import { Server } from "socket.io";
 import jwt from "jsonwebtoken";
 import mongoose from "mongoose";
 import Razorpay from "razorpay";
+import nodemailer from "nodemailer";
+import { generateInvoicePDF } from "./pdfGenerator.js";
 
 const app = express();
 app.use(cors());
@@ -26,7 +28,8 @@ const PRODUCTS = {
   "biryani-masala": { id: "biryani-masala", name: "Anjaraipetti Biryani Masala", price: 1, stock: 120 },
   "chilli-masala": { id: "chilli-masala", name: "Anjaraipetti Chilli Masala", price: 349, stock: 140 },
   "chicken-masala": { id: "chicken-masala", name: "Anjaraipetti Chicken Masala", price: 399, stock: 130 },
-  "mutton-masala": { id: "mutton-masala", name: "Anjaraipetti Mutton Masala", price: 449, stock: 110 }
+  "mutton-masala": { id: "mutton-masala", name: "Anjaraipetti Mutton Masala", price: 449, stock: 110 },
+  "combo-masala-pack": { id: "combo-masala-pack", name: "Anjaraipetti Combo Masala Pack", price: 299, stock: 150 }
 };
 
 const memoryOrders = new Map();
@@ -112,6 +115,47 @@ const razorpayClient =
         key_secret: razorpayKeySecret
       })
     : null;
+
+const transporter = nodemailer.createTransport({
+  service: "gmail",
+  auth: {
+    user: process.env.GMAIL_USER || "",
+    pass: process.env.GMAIL_PASS || ""
+  }
+});
+
+async function sendInvoiceEmail(order) {
+  if (!process.env.GMAIL_USER || !process.env.GMAIL_PASS) {
+    // eslint-disable-next-line no-console
+    console.log("GMAIL_USER or GMAIL_PASS not set. Skipping email dispatch.");
+    return;
+  }
+  try {
+    const pdfBuffer = await generateInvoicePDF(order);
+    const toEmails = [order.customer.email, adminEmail].filter(Boolean).join(", ");
+    
+    if (!toEmails) return;
+
+    const mailOptions = {
+      from: `"Anjaraipetti" <${process.env.GMAIL_USER}>`,
+      to: toEmails,
+      subject: `Invoice for your Anjaraipetti order: ${order.orderId}`,
+      text: `Hello ${order.customer.name},\n\nThank you for your purchase! Please find your invoice attached as a PDF.\n\nOrder ID: ${order.orderId}\nTotal: INR ${order.grandTotal}\n\nBest regards,\nAnjaraipetti`,
+      attachments: [
+        {
+          filename: `Invoice_${order.invoiceNumber}.pdf`,
+          content: pdfBuffer
+        }
+      ]
+    };
+    await transporter.sendMail(mailOptions);
+    // eslint-disable-next-line no-console
+    console.log(`Invoice email sent for order ${order.orderId}`);
+  } catch (err) {
+    // eslint-disable-next-line no-console
+    console.error("Failed to send invoice email:", err);
+  }
+}
 
 function isPersistenceEnabled() {
   return mongoConnected;
@@ -415,6 +459,9 @@ async function createFinalOrder({ productId, quantity, customer, address, paymen
   }
   await persistState();
   broadcastState();
+
+  // Dispatch email asynchronously
+  sendInvoiceEmail(order).catch(console.error);
 
   return order;
 }

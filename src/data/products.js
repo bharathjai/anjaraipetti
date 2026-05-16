@@ -46,6 +46,18 @@ export const products = [
     heatLevel: "Medium Bold",
     origin: "Chettinad, Tamil Nadu",
     image: "/images/mutton-masala.jpg"
+  },
+  {
+    id: "combo-masala-pack",
+    name: "Anjaraipetti Combo Masala Pack",
+    price: 299,
+    subtitle: "Complete spice collection for every meal",
+    description:
+      "A complete combo pack of our best masalas, carefully crafted to elevate your daily cooking and special dishes.",
+    size: "400 g",
+    heatLevel: "Varied",
+    origin: "Tamil Nadu",
+    image: "/images/all-masalas-combined.png"
   }
 ];
 

@@ -44,6 +44,7 @@ export default function InvoiceDocument({ order }) {
         <div className="rounded-xl border border-truffle/10 bg-porcelain p-4 text-sm text-truffle/85">
           <p className="font-semibold uppercase tracking-[0.18em] text-cocoa/80">Payment</p>
           <p className="mt-2">Method: {String(order.payment.method).toUpperCase()}</p>
+          {order.payment.razorpayPaymentId ? <p>Payment ID: {order.payment.razorpayPaymentId}</p> : null}
           <p>Status: {order.payment.status}</p>
           <p className="mt-2">ETA: {order.eta}</p>
           <p>Status: {order.status}</p>

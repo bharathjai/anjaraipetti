@@ -98,7 +98,7 @@ export default function ProductPage({
               style={{ rotateX: tiltX, rotateY: tiltY, transformStyle: "preserve-3d", perspective: 1200 }}
               className="relative cursor-grab rounded-[2.3rem] border border-truffle/15 bg-white/70 p-5 shadow-luxe backdrop-blur-xl active:cursor-grabbing"
             >
-              <img src={product.image} alt={product.name} className="aspect-[4/5] w-full rounded-[2rem] object-cover shadow-halo" />
+              <img src={product.image} alt={product.name} className="aspect-[4/5] w-full rounded-[2rem] object-contain shadow-halo" />
               <p className="mt-4 text-center text-xs text-truffle/50">← Swipe or drag to browse →</p>
             </motion.div>
           </AnimatePresence>

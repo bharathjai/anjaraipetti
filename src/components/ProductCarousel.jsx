@@ -70,7 +70,7 @@ export default function ProductCarousel({ products }) {
               <img
                 src={currentProduct.image}
                 alt={currentProduct.name}
-                className="h-40 w-40 object-cover sm:h-44 sm:w-44"
+                className="h-40 w-40 object-contain sm:h-44 sm:w-44"
               />
             </div>
             <div className="flex-1">

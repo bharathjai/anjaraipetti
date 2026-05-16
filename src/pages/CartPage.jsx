@@ -92,7 +92,7 @@ export default function CartPage({ cartProduct, cartQuantity, onUpdateQuantity }
           className="rounded-3xl border border-truffle/10 bg-white/75 p-6 shadow-luxe backdrop-blur-xl"
         >
           <div className="flex flex-col gap-5 sm:flex-row">
-            <img src={cartProduct.image} alt={cartProduct.name} className="h-36 w-full rounded-2xl object-cover sm:w-44" />
+            <img src={cartProduct.image} alt={cartProduct.name} className="h-36 w-full rounded-2xl object-contain sm:w-44" />
             <div className="flex-1">
               <h2 className="font-display text-3xl text-truffle">{cartProduct.name}</h2>
               <p className="mt-2 text-sm uppercase tracking-[0.2em] text-cocoa/65">{cartProduct.size}</p>
