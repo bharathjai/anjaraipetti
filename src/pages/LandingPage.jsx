@@ -25,7 +25,7 @@ export default function LandingPage({ products }) {
           </p>
           <div className="mt-8 flex flex-wrap gap-4">
             <Link
-              to={`/product/${products[0].id}`}
+              to="/product"
               className="btn-hover rounded-full bg-truffle px-7 py-3 text-sm font-semibold uppercase tracking-[0.2em] text-porcelain transition hover:bg-espresso"
             >
               View Products
