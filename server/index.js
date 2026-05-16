@@ -12,7 +12,10 @@ import mongoose from "mongoose";
 import Razorpay from "razorpay";
 import nodemailer from "nodemailer";
 import dns from "node:dns";
+import { promisify } from "node:util";
 import { generateInvoicePDF } from "./pdfGenerator.js";
+
+const resolve4 = promisify(dns.resolve4);
 
 // Force IPv4 for Nodemailer to prevent ENETUNREACH on Render's IPv6-less containers
 dns.setDefaultResultOrder("ipv4first");
@@ -120,17 +123,7 @@ const razorpayClient =
       })
     : null;
 
-const transporter = nodemailer.createTransport({
-  host: "smtp.gmail.com",
-  port: 587,
-  secure: false, // false for 587 (uses STARTTLS)
-  requireTLS: true,
-  family: 4,
-  auth: {
-    user: process.env.GMAIL_USER || "",
-    pass: process.env.GMAIL_PASS || ""
-  }
-});
+
 
 async function sendInvoiceEmail(order) {
   if (!process.env.GMAIL_USER || !process.env.GMAIL_PASS) {
@@ -156,6 +149,25 @@ async function sendInvoiceEmail(order) {
         }
       ]
     };
+
+    // Definitively force IPv4 by manually resolving the DNS and passing the IP address
+    const addresses = await resolve4("smtp.gmail.com");
+    const ipv4Host = addresses[0];
+
+    const transporter = nodemailer.createTransport({
+      host: ipv4Host,
+      port: 587,
+      secure: false,
+      requireTLS: true,
+      tls: {
+        servername: "smtp.gmail.com" // Required for Google SSL validation when using raw IPs
+      },
+      auth: {
+        user: process.env.GMAIL_USER || "",
+        pass: process.env.GMAIL_PASS || ""
+      }
+    });
+
     await transporter.sendMail(mailOptions);
     // eslint-disable-next-line no-console
     console.log(`Invoice email sent for order ${order.orderId}`);
