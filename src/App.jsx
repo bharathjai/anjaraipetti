@@ -76,10 +76,7 @@ export default function App() {
     socketRef.current = socket;
 
     socket.on("cart:state", (payload) => {
-      const productId = payload?.cart?.productId || payload?.cartProductId || null;
-      const quantity = Number(payload?.cart?.quantity ?? payload?.quantity ?? 0);
       const inventory = payload?.inventory || payload?.inventoryByProduct || {};
-      setCart({ productId, quantity: Number.isNaN(quantity) ? 0 : quantity });
       setInventoryMap(inventory);
     });
 
@@ -98,11 +95,6 @@ export default function App() {
 
   const addToCart = (productId, count = 1) => {
     const delta = Math.max(1, Number.parseInt(count, 10) || 1);
-    if (socketRef.current?.connected) {
-      socketRef.current.emit("cart:change", { productId, delta });
-      return;
-    }
-
     const available = Number(inventoryMap[productId] ?? 9999);
     setCart((prev) => {
       if (prev.productId !== productId) {
@@ -114,10 +106,6 @@ export default function App() {
 
   const updateCartQuantity = (productId, count) => {
     const quantity = Math.max(0, Number.parseInt(count, 10) || 0);
-    if (socketRef.current?.connected) {
-      socketRef.current.emit("cart:set", { productId, quantity });
-      return;
-    }
     const available = Number(inventoryMap[productId] ?? 9999);
     setCart({ productId: quantity > 0 ? productId : null, quantity: Math.min(available, quantity) });
   };
