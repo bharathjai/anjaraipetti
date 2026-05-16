@@ -452,8 +452,12 @@ async function createFinalOrder({ productId, quantity, customer, address, paymen
   await persistState();
   broadcastState();
 
-  // Dispatch email asynchronously
-  sendInvoiceEmail(order).catch(console.error);
+  // Dispatch email and wait for it to finish so serverless environments don't kill the process
+  try {
+    await sendInvoiceEmail(order);
+  } catch (emailError) {
+    console.error("Failed to send email during order creation:", emailError);
+  }
 
   return order;
 }
