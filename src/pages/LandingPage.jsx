@@ -14,12 +14,14 @@ export default function LandingPage({ products }) {
         <motion.div initial={{ opacity: 0, x: -40 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.7 }}>
           <p className="text-xs uppercase tracking-[0.35em] text-cocoa/70">Namma Veetu Anjaraipetti</p>
           <h1 className="mt-4 font-display text-5xl leading-[0.95] text-espresso sm:text-6xl lg:text-7xl">
-            One Brand.
+            Real Spices.
             <br />
-            Four Signature Masalas.
+            From Our Home
+            <br />
+            To Yours.
           </h1>
           <p className="mt-7 max-w-xl text-lg leading-relaxed text-truffle/80">
-            Crafted for real South Indian cooking with bold aroma and consistent taste across Biryani Masala, Chicken Masala, Mutton Masala, and Chilli Powder.
+            Handcrafted masalas and spice blends made fresh without preservatives — the same recipes used in Tamil homes for generations. Bold aroma. Consistent taste. Every single time.
           </p>
           <div className="mt-8 flex flex-wrap gap-4">
             <Link
@@ -52,9 +54,9 @@ export default function LandingPage({ products }) {
               className="h-auto w-full rounded-[1.5rem] object-contain"
             />
             <div className="mt-4 rounded-2xl border border-truffle/10 bg-white/70 p-4">
-              <h2 className="font-display text-3xl text-espresso">4 Signature Packs</h2>
+              <h2 className="font-display text-3xl text-espresso">12 Homemade Blends</h2>
               <p className="mt-1 text-sm uppercase tracking-[0.2em] text-cocoa/70">
-                Biryani | Chicken | Mutton | Chilli Powder
+                No Preservatives · Handmade with Care
               </p>
             </div>
           </div>
@@ -62,8 +64,9 @@ export default function LandingPage({ products }) {
       </div>
 
       <div className="mt-16">
-        <p className="text-xs uppercase tracking-[0.34em] text-cocoa/70">Our Range</p>
-        <div className="mt-5 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+        <p className="text-xs uppercase tracking-[0.34em] text-cocoa/70">Our Full Range</p>
+        <p className="mt-2 max-w-2xl text-sm text-truffle/70">Each blend is freshly prepared, slow-roasted, and packed with care — no additives, no shortcuts.</p>
+        <div className="mt-5 grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
           {products.map((product, index) => (
             <motion.article
               key={product.id}
@@ -71,10 +74,15 @@ export default function LandingPage({ products }) {
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true, amount: 0.4 }}
               transition={{ duration: 0.45, delay: index * 0.07 }}
-              className="rounded-2xl border border-truffle/10 bg-white/70 p-5 shadow-[0_20px_40px_rgba(90,50,25,0.08)] backdrop-blur-lg"
+              className="flex flex-col rounded-2xl border border-truffle/10 bg-white/70 p-5 shadow-[0_20px_40px_rgba(90,50,25,0.08)] backdrop-blur-lg"
             >
+              <img
+                src={product.image}
+                alt={product.name}
+                className="mb-5 aspect-square w-full rounded-xl object-contain mix-blend-multiply"
+              />
               <h3 className="font-display text-2xl text-truffle">{product.name}</h3>
-              <p className="mt-1 text-xs uppercase tracking-[0.2em] text-cocoa/70">{product.subtitle}</p>
+              <p className="mt-1 flex-1 text-xs uppercase tracking-[0.2em] text-cocoa/70">{product.subtitle}</p>
               <p className="mt-3 text-sm font-semibold text-cocoa">INR {product.price}</p>
               <Link
                 to={`/product/${product.id}`}

@@ -24,11 +24,53 @@ const io = new Server(httpServer, {
 });
 
 const PRODUCTS = {
-  "biryani-masala": { id: "biryani-masala", name: "Anjaraipetti Biryani Masala", price: 1, stock: 120 },
-  "chilli-masala": { id: "chilli-masala", name: "Anjaraipetti Chilli Masala", price: 349, stock: 140 },
-  "chicken-masala": { id: "chicken-masala", name: "Anjaraipetti Chicken Masala", price: 399, stock: 130 },
-  "mutton-masala": { id: "mutton-masala", name: "Anjaraipetti Mutton Masala", price: 449, stock: 110 },
-  "combo-masala-pack": { id: "combo-masala-pack", name: "Anjaraipetti Combo Masala Pack", price: 299, stock: 150 }
+  "sambar-masala-50g": { id: "sambar-masala-50g", name: "Anjaraipetti Sambar Masala (50g Pack)", price: 65, stock: 150 },
+  "sambar-masala-100g": { id: "sambar-masala-100g", name: "Anjaraipetti Sambar Masala (100g Pack)", price: 119, stock: 150 },
+  "sambar-masala-250g": { id: "sambar-masala-250g", name: "Anjaraipetti Sambar Masala (250g Pack)", price: 289, stock: 150 },
+
+  "biryani-masala-50g": { id: "biryani-masala-50g", name: "Anjaraipetti Biriyani Masala (50g Pack)", price: 75, stock: 150 },
+  "biryani-masala-100g": { id: "biryani-masala-100g", name: "Anjaraipetti Biriyani Masala (100g Pack)", price: 139, stock: 150 },
+  "biryani-masala-250g": { id: "biryani-masala-250g", name: "Anjaraipetti Biriyani Masala (250g Pack)", price: 339, stock: 150 },
+
+  "pepper-powder-50g": { id: "pepper-powder-50g", name: "Anjaraipetti Pepper Powder (50g Pack)", price: 99, stock: 150 },
+  "pepper-powder-100g": { id: "pepper-powder-100g", name: "Anjaraipetti Pepper Powder (100g Pack)", price: 189, stock: 150 },
+  "pepper-powder-250g": { id: "pepper-powder-250g", name: "Anjaraipetti Pepper Powder (250g Pack)", price: 459, stock: 150 },
+
+  "parupu-podi-50g": { id: "parupu-podi-50g", name: "Anjaraipetti Parupu Podi (50g Pack)", price: 49, stock: 150 },
+  "parupu-podi-100g": { id: "parupu-podi-100g", name: "Anjaraipetti Parupu Podi (100g Pack)", price: 89, stock: 150 },
+  "parupu-podi-250g": { id: "parupu-podi-250g", name: "Anjaraipetti Parupu Podi (250g Pack)", price: 215, stock: 150 },
+
+  "fish-fry-masala-50g": { id: "fish-fry-masala-50g", name: "Anjaraipetti Fish Fry Masala (50g Pack)", price: 49, stock: 150 },
+  "fish-fry-masala-100g": { id: "fish-fry-masala-100g", name: "Anjaraipetti Fish Fry Masala (100g Pack)", price: 89, stock: 150 },
+  "fish-fry-masala-250g": { id: "fish-fry-masala-250g", name: "Anjaraipetti Fish Fry Masala (250g Pack)", price: 215, stock: 150 },
+
+  "tandoori-masala-50g": { id: "tandoori-masala-50g", name: "Anjaraipetti Tandoori Masala (50g Pack)", price: 65, stock: 150 },
+  "tandoori-masala-100g": { id: "tandoori-masala-100g", name: "Anjaraipetti Tandoori Masala (100g Pack)", price: 119, stock: 150 },
+  "tandoori-masala-250g": { id: "tandoori-masala-250g", name: "Anjaraipetti Tandoori Masala (250g Pack)", price: 289, stock: 150 },
+
+  "mutton-masala-50g": { id: "mutton-masala-50g", name: "Anjaraipetti Mutton Masala (50g Pack)", price: 85, stock: 150 },
+  "mutton-masala-100g": { id: "mutton-masala-100g", name: "Anjaraipetti Mutton Masala (100g Pack)", price: 159, stock: 150 },
+  "mutton-masala-250g": { id: "mutton-masala-250g", name: "Anjaraipetti Mutton Masala (250g Pack)", price: 389, stock: 150 },
+
+  "kolambu-powder-100g": { id: "kolambu-powder-100g", name: "Anjaraipetti Kolambu / Chilly Powder (100g Pack)", price: 79, stock: 150 },
+  "kolambu-powder-250g": { id: "kolambu-powder-250g", name: "Anjaraipetti Kolambu / Chilly Powder (250g Pack)", price: 189, stock: 150 },
+
+  "idly-podi-100g": { id: "idly-podi-100g", name: "Anjaraipetti Idly Podi (100g Pack)", price: 49, stock: 150 },
+  "idly-podi-250g": { id: "idly-podi-250g", name: "Anjaraipetti Idly Podi (250g Pack)", price: 119, stock: 150 },
+
+  "garam-masala-50g": { id: "garam-masala-50g", name: "Anjaraipetti Garam Masala (50g Pack)", price: 85, stock: 150 },
+  "garam-masala-100g": { id: "garam-masala-100g", name: "Anjaraipetti Garam Masala (100g Pack)", price: 159, stock: 150 },
+  "garam-masala-250g": { id: "garam-masala-250g", name: "Anjaraipetti Garam Masala (250g Pack)", price: 389, stock: 150 },
+
+  "chicken-masala-50g": { id: "chicken-masala-50g", name: "Anjaraipetti Chicken Masala (50g Pack)", price: 85, stock: 150 },
+  "chicken-masala-100g": { id: "chicken-masala-100g", name: "Anjaraipetti Chicken Masala (100g Pack)", price: 159, stock: 150 },
+  "chicken-masala-250g": { id: "chicken-masala-250g", name: "Anjaraipetti Chicken Masala (250g Pack)", price: 389, stock: 150 },
+
+  "coriander-powder-50g": { id: "coriander-powder-50g", name: "Anjaraipetti Coriander Powder (50g Pack)", price: 49, stock: 150 },
+  "coriander-powder-100g": { id: "coriander-powder-100g", name: "Anjaraipetti Coriander Powder (100g Pack)", price: 89, stock: 150 },
+  "coriander-powder-250g": { id: "coriander-powder-250g", name: "Anjaraipetti Coriander Powder (250g Pack)", price: 215, stock: 150 },
+
+  "combo-box": { id: "combo-box", name: "Anjaraipetti Complete Kitchen Spice Combo Box", price: 299, stock: 150 }
 };
 
 const memoryOrders = new Map();

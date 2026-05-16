@@ -5,7 +5,7 @@ import { io } from "socket.io-client";
 import NavBar from "./components/NavBar";
 import Footer from "./components/Footer";
 import { SOCKET_URL } from "./config/runtime";
-import { products } from "./data/products";
+import { products, getProductById } from "./data/products";
 import AdminLoginPage from "./pages/AdminLoginPage";
 import AdminOrdersPage from "./pages/AdminOrdersPage";
 import CartPage from "./pages/CartPage";
@@ -110,7 +110,8 @@ export default function App() {
     setCart({ productId: quantity > 0 ? productId : null, quantity: Math.min(available, quantity) });
   };
 
-  const cartProduct = products.find((item) => item.id === cart.productId) || null;
+  // Support both variant IDs (e.g. chicken-masala-100g) and base product IDs
+  const cartProduct = cart.productId ? getProductById(cart.productId) : null;
   const cartQuantity = cart.quantity;
 
   return (

@@ -1,5 +1,5 @@
 import { motion, useMotionValue, useSpring, AnimatePresence } from "framer-motion";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link, useParams, useNavigate } from "react-router-dom";
 import AddToCartButton from "../components/AddToCartButton";
 import { getProductById } from "../data/products";
@@ -14,13 +14,22 @@ export default function ProductPage({
   const navigate = useNavigate();
   const { productId } = useParams();
   const product = useMemo(() => getProductById(productId), [productId]);
+  const [selectedVariantId, setSelectedVariantId] = useState(product.variants?.[0]?.id || product.id);
+
+  // Reset selected variant whenever the product changes (swipe navigation)
+  useEffect(() => {
+    setSelectedVariantId(product.variants?.[0]?.id || product.id);
+  }, [product.id]);
+
+  const selectedVariant = product.variants?.find(v => v.id === selectedVariantId) || product.variants?.[0] || product;
+
   const [direction, setDirection] = useState(0);
   const rotateX = useMotionValue(0);
   const rotateY = useMotionValue(0);
   const tiltX = useSpring(rotateX, { stiffness: 180, damping: 22, mass: 0.8 });
   const tiltY = useSpring(rotateY, { stiffness: 180, damping: 22, mass: 0.8 });
   const [quantity, setQuantity] = useState(1);
-  const available = Number(availableMap?.[product.id] ?? 0);
+  const available = Number(availableMap?.[selectedVariant.id] ?? 0);
 
   const swipeToProduct = (newDirection) => {
     setDirection(newDirection);
@@ -115,11 +124,32 @@ export default function ProductPage({
           <p className="mt-3 text-sm uppercase tracking-[0.2em] text-cocoa/65">{product.subtitle}</p>
           <p className="mt-6 leading-relaxed text-truffle/80">{product.description}</p>
 
-          <div className="mt-6 grid gap-3 sm:grid-cols-3">
-            <div className="rounded-xl border border-truffle/10 bg-white/80 p-3">
-              <p className="text-[0.65rem] uppercase tracking-[0.24em] text-cocoa/60">Weight</p>
-              <p className="mt-1 text-sm font-semibold text-truffle">{product.size}</p>
+          {product.variants && product.variants.length > 1 && (
+            <div className="mt-6">
+              <p className="text-[0.65rem] uppercase tracking-[0.24em] text-cocoa/60">Select Size</p>
+              <div className="mt-2 flex flex-wrap gap-2">
+                {product.variants.map(v => (
+                  <button
+                    key={v.id}
+                    type="button"
+                    onClick={() => setSelectedVariantId(v.id)}
+                    className={`relative rounded-full border px-5 py-2 text-sm font-semibold transition-all duration-200 ${
+                      selectedVariantId === v.id
+                        ? "border-truffle bg-truffle text-porcelain shadow-[0_4px_14px_rgba(90,50,25,0.35)] scale-105"
+                        : "border-truffle/25 bg-white/80 text-truffle hover:border-truffle/60 hover:bg-almond"
+                    }`}
+                  >
+                    {v.size}
+                    {selectedVariantId === v.id && (
+                      <span className="ml-2 text-xs opacity-80">₹{v.price}</span>
+                    )}
+                  </button>
+                ))}
+              </div>
             </div>
+          )}
+
+          <div className="mt-4 grid gap-3 sm:grid-cols-2">
             <div className="rounded-xl border border-truffle/10 bg-white/80 p-3">
               <p className="text-[0.65rem] uppercase tracking-[0.24em] text-cocoa/60">Heat</p>
               <p className="mt-1 text-sm font-semibold text-truffle">{product.heatLevel}</p>
@@ -133,7 +163,7 @@ export default function ProductPage({
           <div className="mt-7 flex items-end justify-between gap-5">
             <div>
               <p className="text-xs uppercase tracking-[0.2em] text-cocoa/60">Price</p>
-              <p className="mt-1 font-display text-5xl text-cocoa">INR {product.price}</p>
+              <p className="mt-1 font-display text-5xl text-cocoa">INR {selectedVariant.price}</p>
             </div>
             <div className="flex items-center gap-2 rounded-full border border-truffle/15 bg-white/80 p-1">
               <button
@@ -154,11 +184,9 @@ export default function ProductPage({
               </button>
             </div>
           </div>
-          <p className="mt-2 text-xs uppercase tracking-[0.2em] text-cocoa/60">
-            Live stock: {available} packs {cartProductId === product.id ? "| In cart" : ""}
-          </p>
+
           <div className="mt-6">
-            <AddToCartButton label="Add to Cart" onAdd={() => onAddToCart(product.id, quantity)} />
+            <AddToCartButton label="Add to Cart" onAdd={() => onAddToCart(selectedVariant.id, quantity)} />
           </div>
         </motion.div>
       </div>
