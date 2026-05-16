@@ -19,14 +19,15 @@ export default function NavBar({ cartQuantity }) {
       <div className="mx-auto flex w-full max-w-7xl flex-col gap-3 px-4 py-3 sm:px-6 md:flex-row md:items-center md:justify-between md:px-10 md:py-4">
         <NavLink to="/" className="inline-flex items-center gap-2.5 px-1 py-1">
           <BoilingCooktop />
-          <span className="relative isolate">
+          <span className="relative isolate flex flex-col justify-center">
             <span
               aria-hidden="true"
-              className="pointer-events-none absolute -left-5 -top-4 h-12 w-36 opacity-45 sm:-left-6 sm:-top-5 sm:h-14 sm:w-44"
+              className="pointer-events-none absolute -left-6 -top-5 h-16 w-48 opacity-30"
             >
               <BrandHatMark />
             </span>
-            <span className="relative z-10 font-display text-2xl tracking-wide text-truffle sm:text-3xl">Anjaraipetti</span>
+            <span className="relative z-10 ml-0.5 text-[0.55rem] font-bold uppercase tracking-[0.3em] text-cocoa/80">Namma Veetu</span>
+            <span className="relative z-10 -mt-1.5 font-display text-2xl tracking-wide text-truffle sm:text-3xl">Anjaraipetti</span>
           </span>
         </NavLink>
         <div className="flex w-full items-center md:w-auto">

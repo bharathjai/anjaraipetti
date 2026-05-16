@@ -34,19 +34,20 @@ const initialForm = {
   paymentMethod: "razorpay"
 };
 
-export default function CheckoutPage({ cartProduct, cartQuantity, onClearCart }) {
+export default function CheckoutPage({ cartItems, onClearCart }) {
   const navigate = useNavigate();
   const formRef = useRef(null);
   const [form, setForm] = useState(initialForm);
   const [errors, setErrors] = useState({});
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isDownloading, setIsDownloading] = useState(false);
   const [serverError, setServerError] = useState("");
   const [confirmedOrderId, setConfirmedOrderId] = useState("");
 
-  const subtotal = useMemo(() => (cartProduct ? cartProduct.price * cartQuantity : 0), [cartProduct, cartQuantity]);
+  const subtotal = useMemo(() => cartItems?.reduce((sum, item) => sum + item.product.price * item.quantity, 0) || 0, [cartItems]);
   const total = subtotal;
 
-  if ((!cartProduct || cartQuantity < 1) && !isSubmitting) {
+  if ((!cartItems || cartItems.length === 0) && !isSubmitting && !confirmedOrderId) {
     return <Navigate to="/cart" replace />;
   }
 
@@ -92,13 +93,9 @@ export default function CheckoutPage({ cartProduct, cartQuantity, onClearCart })
     pincode: form.pincode.trim()
   };
 
-  const showConfirmationAndNavigate = async (nextOrderId) => {
+  const showConfirmation = (nextOrderId) => {
     setConfirmedOrderId(nextOrderId);
     if (onClearCart) onClearCart();
-    await new Promise((resolve) => {
-      window.setTimeout(resolve, 1700);
-    });
-    navigate(`/order/${nextOrderId}`);
   };
 
   const placeCodOrder = async () => {
@@ -106,8 +103,7 @@ export default function CheckoutPage({ cartProduct, cartQuantity, onClearCart })
       method: "POST",
       headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          productId: cartProduct.id,
-          quantity: cartQuantity,
+          items: cartItems.map((item) => ({ productId: item.product.id, quantity: item.quantity })),
           customer,
           address,
         payment: {
@@ -122,7 +118,7 @@ export default function CheckoutPage({ cartProduct, cartQuantity, onClearCart })
       focusFirstInvalidField(nextErrors);
       throw new Error("Unable to place COD order");
     }
-    await showConfirmationAndNavigate(payload.order.orderId);
+    showConfirmation(payload.order.orderId);
   };
 
   const placeRazorpayOrder = async () => {
@@ -133,8 +129,7 @@ export default function CheckoutPage({ cartProduct, cartQuantity, onClearCart })
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        productId: cartProduct.id,
-        quantity: cartQuantity
+        items: cartItems.map((item) => ({ productId: item.product.id, quantity: item.quantity }))
       })
     });
     const createOrderPayload = await createOrderResponse.json();
@@ -151,7 +146,7 @@ export default function CheckoutPage({ cartProduct, cartQuantity, onClearCart })
         amount: createOrderPayload.razorpayOrder.amount,
         currency: createOrderPayload.razorpayOrder.currency,
         name: "Anjaraipetti",
-        description: `${cartProduct.name} x ${cartQuantity}`,
+        description: `${cartItems.length} item(s)`,
         order_id: createOrderPayload.razorpayOrder.id,
         prefill: {
           name: customer.name,
@@ -159,8 +154,7 @@ export default function CheckoutPage({ cartProduct, cartQuantity, onClearCart })
           contact: customer.phone
         },
         notes: {
-          product: cartProduct.id,
-          quantity: String(cartQuantity)
+          itemsCount: String(cartItems.length)
         },
         theme: {
           color: "#8a4a22"
@@ -173,8 +167,7 @@ export default function CheckoutPage({ cartProduct, cartQuantity, onClearCart })
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
-                  productId: cartProduct.id,
-                  quantity: cartQuantity,
+                  items: cartItems.map((item) => ({ productId: item.product.id, quantity: item.quantity })),
                   customer,
                   address,
                   payment: {
@@ -203,7 +196,7 @@ export default function CheckoutPage({ cartProduct, cartQuantity, onClearCart })
       rz.open();
     });
 
-    await showConfirmationAndNavigate(result);
+    showConfirmation(result);
   };
 
   const handleSubmit = async (event) => {
@@ -335,10 +328,14 @@ export default function CheckoutPage({ cartProduct, cartQuantity, onClearCart })
           className="h-fit rounded-3xl border border-truffle/10 bg-white/75 p-6 shadow-luxe backdrop-blur-xl"
         >
           <p className="text-xs uppercase tracking-[0.3em] text-cocoa/70">Order Summary</p>
-          <h2 className="mt-3 font-display text-3xl text-truffle">{cartProduct?.name}</h2>
-          <p className="mt-1 text-sm uppercase tracking-[0.2em] text-cocoa/65">
-            Qty {cartQuantity} x {formatINR(cartProduct?.price || 0)}
-          </p>
+          <div className="mt-4 mb-2 space-y-3">
+            {cartItems?.map((item) => (
+              <div key={item.product.id} className="flex justify-between text-sm">
+                <span className="text-truffle">{item.product.name} (x{item.quantity})</span>
+                <span className="text-cocoa font-medium">{formatINR(item.product.price * item.quantity)}</span>
+              </div>
+            ))}
+          </div>
           <div className="mt-5 space-y-2 text-truffle/85">
             <div className="flex items-center justify-between">
               <span>Subtotal</span>
@@ -403,10 +400,43 @@ export default function CheckoutPage({ cartProduct, cartQuantity, onClearCart })
               </motion.div>
 
               <h3 className="mt-5 font-display text-4xl text-emerald-800">Order Confirmed</h3>
-              <p className="mt-2 text-sm font-semibold uppercase tracking-[0.16em] text-emerald-700">
-                Redirecting to your order details...
-              </p>
-              <p className="mt-4 text-xs uppercase tracking-[0.2em] text-truffle/70">Order ID: {confirmedOrderId}</p>
+              <p className="mt-2 text-xs uppercase tracking-[0.2em] text-truffle/70">Order ID: {confirmedOrderId}</p>
+
+              <div className="mt-8 flex flex-col gap-3">
+                <button
+                  type="button"
+                  onClick={async () => {
+                    try {
+                      setIsDownloading(true);
+                      const response = await fetch(`${API_BASE_URL}/api/orders/${confirmedOrderId}/invoice`);
+                      if (!response.ok) throw new Error();
+                      const blob = await response.blob();
+                      const url = window.URL.createObjectURL(blob);
+                      const a = document.createElement("a");
+                      a.href = url;
+                      a.download = `Invoice_${confirmedOrderId}.pdf`;
+                      document.body.appendChild(a);
+                      a.click();
+                      window.URL.revokeObjectURL(url);
+                      document.body.removeChild(a);
+                    } catch {
+                      window.alert("Unable to download invoice right now.");
+                    } finally {
+                      setIsDownloading(false);
+                    }
+                  }}
+                  disabled={isDownloading}
+                  className="w-full rounded-full bg-emerald-600 px-6 py-3 text-sm font-semibold uppercase tracking-[0.2em] text-white transition hover:bg-emerald-700 shadow-md disabled:cursor-not-allowed disabled:opacity-65"
+                >
+                  {isDownloading ? "Preparing PDF..." : "Download Invoice"}
+                </button>
+                <Link
+                  to={`/order/${confirmedOrderId}`}
+                  className="w-full rounded-full border border-emerald-200 bg-white px-6 py-3 text-sm font-semibold uppercase tracking-[0.2em] text-emerald-700 transition hover:bg-emerald-50 shadow-sm block"
+                >
+                  View Order Details
+                </Link>
+              </div>
             </motion.div>
           </motion.div>
         ) : null}

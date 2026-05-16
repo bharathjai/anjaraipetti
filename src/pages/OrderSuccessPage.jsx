@@ -38,23 +38,25 @@ export default function OrderSuccessPage() {
   }, [orderId]);
 
   const handleDownloadInvoice = async () => {
-    if (!invoiceRef.current || !order) return;
+    if (!order) return;
     try {
       setIsDownloading(true);
-      const html2pdfModule = await import("html2pdf.js");
-      const html2pdf = html2pdfModule.default || html2pdfModule;
-      await html2pdf()
-        .set({
-          margin: [10, 10, 10, 10],
-          filename: `${order.invoiceNumber || order.orderId}.pdf`,
-          image: { type: "jpeg", quality: 0.98 },
-          html2canvas: { scale: 2, useCORS: true, backgroundColor: "#ffffff" },
-          jsPDF: { unit: "mm", format: "a4", orientation: "portrait" }
-        })
-        .from(invoiceRef.current)
-        .save();
+      const response = await fetch(`${API_BASE_URL}/api/orders/${order.orderId}/invoice`);
+      if (!response.ok) {
+        throw new Error("Failed to download invoice");
+      }
+      
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `Invoice_${order.invoiceNumber || order.orderId}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
     } catch (_error) {
-      setError("Unable to download invoice PDF right now.");
+      window.alert("Unable to download invoice PDF right now. The order might have expired from memory. Please try placing a new order.");
     } finally {
       setIsDownloading(false);
     }
@@ -97,25 +99,25 @@ export default function OrderSuccessPage() {
           Order ID: <span className="font-semibold text-cocoa">{order.orderId}</span>
         </p>
 
-        <div className="mt-5 flex flex-wrap gap-3">
+        <div ref={invoiceRef} className="mt-8">
+          <InvoiceDocument order={order} />
+        </div>
+
+        <div className="mt-10 flex flex-wrap items-center justify-center gap-4">
           <button
             type="button"
             onClick={handleDownloadInvoice}
             disabled={isDownloading}
-            className="rounded-full bg-truffle px-7 py-3 text-sm font-semibold uppercase tracking-[0.2em] text-porcelain disabled:cursor-not-allowed disabled:opacity-65"
+            className="rounded-full bg-truffle px-8 py-3 text-sm font-semibold uppercase tracking-[0.2em] text-porcelain transition hover:bg-espresso disabled:cursor-not-allowed disabled:opacity-65 shadow-md"
           >
             {isDownloading ? "Preparing PDF..." : "Download Invoice PDF"}
           </button>
           <Link
             to="/product"
-            className="btn-hover rounded-full border border-truffle/20 bg-white px-7 py-3 text-sm font-semibold uppercase tracking-[0.2em] text-truffle"
+            className="btn-hover rounded-full border border-truffle/20 bg-white px-8 py-3 text-sm font-semibold uppercase tracking-[0.2em] text-truffle transition hover:bg-almond shadow-sm"
           >
             Shop More
           </Link>
-        </div>
-
-        <div ref={invoiceRef} className="mt-8">
-          <InvoiceDocument order={order} />
         </div>
       </motion.div>
     </section>

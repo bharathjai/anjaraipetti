@@ -29,7 +29,7 @@ export default function ProductPage({
   const tiltX = useSpring(rotateX, { stiffness: 180, damping: 22, mass: 0.8 });
   const tiltY = useSpring(rotateY, { stiffness: 180, damping: 22, mass: 0.8 });
   const [quantity, setQuantity] = useState(1);
-  const available = Number(availableMap?.[selectedVariant.id] ?? 0);
+  const available = Number(availableMap?.[selectedVariant.id] ?? 9999);
 
   const swipeToProduct = (newDirection) => {
     setDirection(newDirection);
@@ -63,21 +63,6 @@ export default function ProductPage({
 
   return (
     <section className="mx-auto w-full max-w-7xl px-6 pb-20 pt-12 md:px-10 md:pt-20">
-      <div className="mb-8 flex flex-wrap gap-2">
-        {products.map((item) => (
-          <Link
-            key={item.id}
-            to={`/product/${item.id}`}
-            className={`btn-hover rounded-full border px-4 py-2 text-xs font-semibold uppercase tracking-[0.16em] ${
-              item.id === product.id
-                ? "border-cocoa bg-cocoa text-porcelain"
-                : "border-truffle/20 bg-white/75 text-truffle"
-            }`}
-          >
-            {item.name.replace("Anjaraipetti ", "")}
-          </Link>
-        ))}
-      </div>
 
       <div className="grid items-center gap-14 lg:grid-cols-[1.1fr_1fr]">
         <motion.div

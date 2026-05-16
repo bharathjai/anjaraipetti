@@ -95,12 +95,14 @@ export default function InvoiceDocument({ order }) {
             </tr>
           </thead>
           <tbody className="divide-y divide-truffle/10">
-            <tr className="transition-colors hover:bg-white/50">
-              <td className="px-6 py-5 font-medium text-espresso">{productName}</td>
-              <td className="px-6 py-5 text-center font-medium text-truffle">{order.quantity}</td>
-              <td className="px-6 py-5 text-right font-medium text-truffle">{formatINR(order.unitPrice)}</td>
-              <td className="px-6 py-5 text-right font-medium text-espresso">{formatINR(subtotal)}</td>
-            </tr>
+            {(order.items || []).map((item, idx) => (
+              <tr key={idx} className="transition-colors hover:bg-white/50">
+                <td className="px-6 py-5 font-medium text-espresso">{item.productName}</td>
+                <td className="px-6 py-5 text-center font-medium text-truffle">{item.quantity}</td>
+                <td className="px-6 py-5 text-right font-medium text-truffle">{formatINR(item.unitPrice)}</td>
+                <td className="px-6 py-5 text-right font-medium text-espresso">{formatINR(item.subtotal)}</td>
+              </tr>
+            ))}
           </tbody>
         </table>
       </div>

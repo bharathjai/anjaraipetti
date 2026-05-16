@@ -92,10 +92,15 @@ const orderSchema = new mongoose.Schema(
   {
     orderId: { type: String, required: true, unique: true, index: true },
     invoiceNumber: { type: String, required: true, unique: true, index: true },
-    productId: { type: String, required: true },
-    productName: { type: String, required: true },
-    quantity: { type: Number, required: true },
-    unitPrice: { type: Number, required: true },
+    items: [
+      {
+        productId: { type: String, required: true },
+        productName: { type: String, required: true },
+        quantity: { type: Number, required: true },
+        unitPrice: { type: Number, required: true },
+        subtotal: { type: Number, required: true }
+      }
+    ],
     subtotal: { type: Number, required: true },
     grandTotal: { type: Number, required: true },
     total: { type: Number, required: true },
@@ -489,17 +494,22 @@ function isBlank(value) {
 
 function validatePayload(payload, isRazorpayConfirm = false) {
   const errors = {};
-  const { customer = {}, address = {}, payment = {}, quantity, productId } = payload || {};
-  const product = getProductById(productId);
-  const qty = Number.parseInt(quantity, 10);
-
-  if (!product) errors.productId = "Invalid product";
-  if (Number.isNaN(qty) || qty < 1) errors.quantity = "Invalid quantity";
-
-
-
-  if (product && !Number.isNaN(qty) && qty > Number(inventoryByProduct[product.id] ?? 0)) {
-    errors.quantity = "Out of stock";
+  const { customer = {}, address = {}, payment = {}, items = [] } = payload || {};
+  
+  if (!items || !Array.isArray(items) || items.length === 0) {
+    errors.items = "Cart is empty";
+  } else {
+    items.forEach((item, index) => {
+      const product = getProductById(item.productId);
+      const qty = Number.parseInt(item.quantity, 10);
+      if (!product) {
+        errors[`item_${index}`] = "Invalid product";
+      } else if (Number.isNaN(qty) || qty < 1) {
+        errors[`item_${index}`] = "Invalid quantity";
+      } else if (qty > Number(inventoryByProduct[product.id] ?? 0)) {
+        errors[`item_${index}`] = `Out of stock for ${product.name}`;
+      }
+    });
   }
 
   if (isBlank(customer.name)) errors.customerName = "Customer name is required";
@@ -523,17 +533,28 @@ function validatePayload(payload, isRazorpayConfirm = false) {
     if (isBlank(payment.cardName)) errors.cardName = "Card holder name required";
   }
 
-  return { errors, qty, method, product };
+  return { errors, items, method };
 }
 
-async function createFinalOrder({ productId, quantity, customer, address, payment }) {
-  const product = getProductById(productId);
-  if (!product) {
-    throw new Error("Invalid product");
+async function createFinalOrder({ items, customer, address, payment }) {
+  if (!items || items.length === 0) {
+    throw new Error("Cart is empty");
   }
 
+  const processedItems = items.map(item => {
+    const product = getProductById(item.productId);
+    if (!product) throw new Error("Invalid product in cart");
+    return {
+      productId: product.id,
+      productName: product.name,
+      quantity: item.quantity,
+      unitPrice: product.price,
+      subtotal: product.price * item.quantity
+    };
+  });
+
   const invoiceNumber = await nextInvoiceNumber();
-  const subtotal = product.price * quantity;
+  const subtotal = processedItems.reduce((sum, item) => sum + item.subtotal, 0);
   const grandTotal = subtotal;
   const total = grandTotal;
   const orderId = `ANJ${Date.now().toString().slice(-8)}`;
@@ -541,10 +562,7 @@ async function createFinalOrder({ productId, quantity, customer, address, paymen
   const order = {
     orderId,
     invoiceNumber,
-    productId: product.id,
-    productName: product.name,
-    quantity,
-    unitPrice: product.price,
+    items: processedItems,
     subtotal,
     grandTotal,
     total,
@@ -552,18 +570,15 @@ async function createFinalOrder({ productId, quantity, customer, address, paymen
     address,
     payment,
     status: "Order confirmed",
-    eta: "2 or 3 business days",
+    eta: "2 - 4 business days",
     createdAt: new Date().toISOString()
   };
 
   await saveOrder(order);
-  inventoryByProduct[product.id] = Math.max(0, Number(inventoryByProduct[product.id] ?? 0) - quantity);
-  if (cartState.productId === product.id) {
-    cartState.quantity = clampQuantity(product.id, cartState.quantity - quantity);
-    if (cartState.quantity === 0) {
-      cartState.productId = null;
-    }
-  }
+  
+  processedItems.forEach(item => {
+    inventoryByProduct[item.productId] = Math.max(0, Number(inventoryByProduct[item.productId] ?? 0) - item.quantity);
+  });
   await persistState();
   broadcastState();
 
@@ -605,15 +620,14 @@ app.post("/api/admin/login", (req, res) => {
 });
 
 app.post("/api/orders", async (req, res) => {
-  const { errors, qty, method, product } = validatePayload(req.body);
+  const { errors, items, method } = validatePayload(req.body);
   if (Object.keys(errors).length > 0) {
     return res.status(400).json({ ok: false, errors });
   }
 
   try {
     const order = await createFinalOrder({
-      productId: product.id,
-      quantity: qty,
+      items,
       customer: req.body.customer,
       address: req.body.address,
       payment: {
@@ -623,7 +637,8 @@ app.post("/api/orders", async (req, res) => {
     });
 
     return res.json({ ok: true, order });
-  } catch (_error) {
+  } catch (error) {
+    console.error(error);
     return res.status(500).json({ ok: false, message: "Unable to place order" });
   }
 });
@@ -633,29 +648,35 @@ app.post("/api/payments/razorpay/order", async (req, res) => {
     return res.status(503).json({ ok: false, message: "Razorpay is not configured on server" });
   }
 
-  const productId = String(req.body?.productId || "");
-  const product = getProductById(productId);
-  const quantity = Number.parseInt(req.body?.quantity, 10);
-  if (!product) {
-    return res.status(400).json({ ok: false, message: "Invalid product" });
+  const items = req.body?.items || [];
+  if (!Array.isArray(items) || items.length === 0) {
+    return res.status(400).json({ ok: false, message: "Cart is empty" });
   }
-  if (Number.isNaN(quantity) || quantity < 1) {
-    return res.status(400).json({ ok: false, message: "Invalid quantity" });
-  }
-  if (quantity > Number(inventoryByProduct[product.id] ?? 0)) {
-    return res.status(400).json({ ok: false, message: "Requested quantity unavailable" });
+
+  let totalAmount = 0;
+  for (const item of items) {
+    const product = getProductById(item.productId);
+    const quantity = Number.parseInt(item.quantity, 10);
+    if (!product) {
+      return res.status(400).json({ ok: false, message: "Invalid product" });
+    }
+    if (Number.isNaN(quantity) || quantity < 1) {
+      return res.status(400).json({ ok: false, message: "Invalid quantity" });
+    }
+    if (quantity > Number(inventoryByProduct[product.id] ?? 0)) {
+      return res.status(400).json({ ok: false, message: `Requested quantity unavailable for ${product.name}` });
+    }
+    totalAmount += product.price * quantity;
   }
 
   try {
-    const subtotal = product.price * quantity;
-    const amount = Math.round(subtotal * 100);
+    const amount = Math.round(totalAmount * 100);
     const razorpayOrder = await razorpayClient.orders.create({
       amount,
       currency: "INR",
       receipt: `anj_${Date.now()}`,
       notes: {
-        productId: product.id,
-        quantity: String(quantity)
+        itemsCount: String(items.length)
       }
     });
 
@@ -674,15 +695,14 @@ app.post("/api/orders/razorpay/confirm", async (req, res) => {
     return res.status(503).json({ ok: false, message: "Razorpay is not configured on server" });
   }
 
-  const { payment = {}, customer, address, quantity, productId } = req.body || {};
+  const { payment = {}, customer, address, items: reqItems } = req.body || {};
   const razorpayOrderId = String(payment.razorpayOrderId || "");
   const razorpayPaymentId = String(payment.razorpayPaymentId || "");
   const razorpaySignature = String(payment.razorpaySignature || "");
-  const { errors, qty, product } = validatePayload({
+  const { errors, items } = validatePayload({
     customer,
     address,
-    quantity,
-    productId,
+    items: reqItems,
     payment: { method: "razorpay" }
   }, true);
 
@@ -713,8 +733,7 @@ app.post("/api/orders/razorpay/confirm", async (req, res) => {
 
   try {
     const order = await createFinalOrder({
-      productId: product.id,
-      quantity: qty,
+      items,
       customer,
       address,
       payment: {
@@ -727,7 +746,6 @@ app.post("/api/orders/razorpay/confirm", async (req, res) => {
     processedPayments.add(razorpayPaymentId);
     return res.json({ ok: true, order });
   } catch (error) {
-    // eslint-disable-next-line no-console
     console.error("Order confirmation error:", error.message, error);
     return res.status(500).json({ ok: false, message: "Unable to confirm order", error: error.message });
   }
@@ -778,6 +796,23 @@ app.get("/api/orders/:orderId", async (req, res) => {
     return res.status(404).json({ ok: false, message: "Order not found" });
   }
   return res.json({ ok: true, order });
+});
+
+app.get("/api/orders/:orderId/invoice", async (req, res) => {
+  const order = await getOrderById(req.params.orderId);
+  if (!order) {
+    return res.status(404).json({ ok: false, message: "Order not found" });
+  }
+
+  try {
+    const pdfBuffer = await generateInvoicePDF(order);
+    res.setHeader("Content-Type", "application/pdf");
+    res.setHeader("Content-Disposition", `attachment; filename="Invoice_${order.invoiceNumber}.pdf"`);
+    res.send(pdfBuffer);
+  } catch (error) {
+    console.error("Invoice generation error:", error);
+    res.status(500).json({ ok: false, message: "Unable to generate invoice PDF" });
+  }
 });
 
 if (fs.existsSync(path.join(distPath, "index.html"))) {

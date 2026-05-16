@@ -13,6 +13,7 @@ import CheckoutPage from "./pages/CheckoutPage";
 import LandingPage from "./pages/LandingPage";
 import OrderSuccessPage from "./pages/OrderSuccessPage";
 import ProductPage from "./pages/ProductPage";
+import ProductsPage from "./pages/ProductsPage";
 
 const ingredients = [
   { title: "Guntur Chilli", note: "Deep red color and bold chilli-forward heat." },
@@ -59,11 +60,18 @@ export default function App() {
   const [cart, setCart] = useState(() => {
     try {
       const saved = localStorage.getItem("anjaraipetti_cart");
-      if (saved) return JSON.parse(saved);
+      const parsed = saved ? JSON.parse(saved) : null;
+      // Handle migration from old single-product cart to new multi-product cart
+      if (parsed && typeof parsed === "object") {
+        if ("productId" in parsed) {
+          return parsed.productId && parsed.quantity > 0 ? { [parsed.productId]: parsed.quantity } : {};
+        }
+        return parsed;
+      }
     } catch (e) {
       console.error("Error parsing cart from localStorage:", e);
     }
-    return { productId: null, quantity: 0 };
+    return {};
   });
   const [inventoryMap, setInventoryMap] = useState({});
   const socketRef = useRef(null);
@@ -97,22 +105,40 @@ export default function App() {
     const delta = Math.max(1, Number.parseInt(count, 10) || 1);
     const available = Number(inventoryMap[productId] ?? 9999);
     setCart((prev) => {
-      if (prev.productId !== productId) {
-        return { productId, quantity: Math.min(available, delta) };
+      const currentQty = prev[productId] || 0;
+      const newQty = Math.max(0, Math.min(available, currentQty + delta));
+      if (newQty === 0) {
+        const next = { ...prev };
+        delete next[productId];
+        return next;
       }
-      return { productId, quantity: Math.max(0, Math.min(available, prev.quantity + delta)) };
+      return { ...prev, [productId]: newQty };
     });
   };
 
   const updateCartQuantity = (productId, count) => {
     const quantity = Math.max(0, Number.parseInt(count, 10) || 0);
     const available = Number(inventoryMap[productId] ?? 9999);
-    setCart({ productId: quantity > 0 ? productId : null, quantity: Math.min(available, quantity) });
+    setCart((prev) => {
+      const next = { ...prev };
+      if (quantity === 0) {
+        delete next[productId];
+      } else {
+        next[productId] = Math.min(available, quantity);
+      }
+      return next;
+    });
   };
 
-  // Support both variant IDs (e.g. chicken-masala-100g) and base product IDs
-  const cartProduct = cart.productId ? getProductById(cart.productId) : null;
-  const cartQuantity = cart.quantity;
+  const clearCart = () => setCart({});
+
+  const cartItems = useMemo(() => {
+    return Object.entries(cart)
+      .map(([id, qty]) => ({ product: getProductById(id), quantity: qty }))
+      .filter((item) => item.product != null);
+  }, [cart]);
+
+  const cartQuantity = cartItems.reduce((sum, item) => sum + item.quantity, 0);
 
   return (
     <main className="relative min-h-screen overflow-x-clip bg-porcelain text-espresso">
@@ -128,7 +154,7 @@ export default function App() {
         >
           <Routes location={location}>
             <Route path="/" element={<LandingPage products={products} />} />
-            <Route path="/product" element={<Navigate to={`/product/${defaultProductId}`} replace />} />
+            <Route path="/product" element={<ProductsPage products={products} />} />
             <Route
               path="/product/:productId"
               element={
@@ -137,7 +163,7 @@ export default function App() {
                   ingredients={ingredients}
                   onAddToCart={addToCart}
                   availableMap={inventoryMap}
-                  cartProductId={cart.productId}
+                  cartItems={cartItems}
                 />
               }
             />
@@ -145,7 +171,7 @@ export default function App() {
               path="/cart"
               element={
                 <CartPage
-                  cartProduct={cartProduct}
+                  cartItems={cartItems}
                   cartQuantity={cartQuantity}
                   onUpdateQuantity={updateCartQuantity}
                 />
@@ -153,7 +179,7 @@ export default function App() {
             />
             <Route
               path="/checkout"
-              element={<CheckoutPage cartProduct={cartProduct} cartQuantity={cartQuantity} onClearCart={() => setCart({ productId: null, quantity: 0 })} />}
+              element={<CheckoutPage cartItems={cartItems} onClearCart={clearCart} />}
             />
             <Route path="/order/:orderId" element={<OrderSuccessPage />} />
             <Route path="/admin/login" element={<AdminLoginPage />} />

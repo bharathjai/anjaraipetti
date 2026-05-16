@@ -42,8 +42,8 @@ function CartLogoBackground() {
   );
 }
 
-export default function CartPage({ cartProduct, cartQuantity, onUpdateQuantity }) {
-  if (!cartProduct || cartQuantity === 0) {
+export default function CartPage({ cartItems, cartQuantity, onUpdateQuantity }) {
+  if (!cartItems || cartItems.length === 0) {
     return (
       <section className="relative isolate mx-auto flex min-h-[70vh] w-full max-w-4xl items-center justify-center overflow-hidden px-6 py-20 md:px-10">
         <CartLogoBackground />
@@ -61,7 +61,7 @@ export default function CartPage({ cartProduct, cartQuantity, onUpdateQuantity }
             Add Anjaraipetti Biryani Masala, Chilli Masala, Chicken Masala, or Mutton Masala to begin your order.
           </p>
           <Link
-            to="/product/biryani-masala"
+            to="/product"
             className="btn-hover mt-8 inline-flex rounded-full bg-truffle px-8 py-3 text-sm font-semibold uppercase tracking-[0.2em] text-porcelain transition hover:bg-espresso"
           >
             Go To Product
@@ -71,7 +71,7 @@ export default function CartPage({ cartProduct, cartQuantity, onUpdateQuantity }
     );
   }
 
-  const subtotal = cartProduct.price * cartQuantity;
+  const subtotal = cartItems.reduce((sum, item) => sum + item.product.price * item.quantity, 0);
   const total = subtotal;
 
   return (
@@ -85,38 +85,43 @@ export default function CartPage({ cartProduct, cartQuantity, onUpdateQuantity }
       </motion.div>
 
       <div className="mt-8 grid gap-6 lg:grid-cols-[1.2fr_0.8fr]">
-        <motion.article
-          initial={{ opacity: 0, y: 24 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.08 }}
-          className="rounded-3xl border border-truffle/10 bg-white/75 p-6 shadow-luxe backdrop-blur-xl"
-        >
-          <div className="flex flex-col gap-5 sm:flex-row">
-            <img src={cartProduct.image} alt={cartProduct.name} className="h-36 w-full rounded-2xl object-contain sm:w-44" />
-            <div className="flex-1">
-              <h2 className="font-display text-3xl text-truffle">{cartProduct.name}</h2>
-              <p className="mt-2 text-sm uppercase tracking-[0.2em] text-cocoa/65">{cartProduct.size}</p>
-              <p className="mt-3 text-truffle/80">{formatINR(cartProduct.price)} per pack</p>
-              <div className="mt-4 inline-flex items-center gap-2 rounded-full border border-truffle/15 bg-white p-1">
-                <button
-                  type="button"
-                  onClick={() => onUpdateQuantity(cartProduct.id, cartQuantity - 1)}
-                  className="h-9 w-9 rounded-full bg-almond text-xl text-truffle transition hover:bg-biscuit"
-                >
-                  -
-                </button>
-                <span className="w-10 text-center font-semibold text-truffle">{cartQuantity}</span>
-                <button
-                  type="button"
-                  onClick={() => onUpdateQuantity(cartProduct.id, cartQuantity + 1)}
-                  className="h-9 w-9 rounded-full bg-almond text-xl text-truffle transition hover:bg-biscuit"
-                >
-                  +
-                </button>
+        <div className="space-y-4">
+          {cartItems.map((item, index) => (
+            <motion.article
+              key={item.product.id}
+              initial={{ opacity: 0, y: 24 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.08 + index * 0.05 }}
+              className="rounded-3xl border border-truffle/10 bg-white/75 p-6 shadow-luxe backdrop-blur-xl"
+            >
+              <div className="flex flex-col gap-5 sm:flex-row">
+                <img src={item.product.image} alt={item.product.name} className="h-36 w-full rounded-2xl object-contain sm:w-44" />
+                <div className="flex-1">
+                  <h2 className="font-display text-3xl text-truffle">{item.product.name}</h2>
+                  <p className="mt-2 text-sm uppercase tracking-[0.2em] text-cocoa/65">{item.product.size}</p>
+                  <p className="mt-3 text-truffle/80">{formatINR(item.product.price)} per pack</p>
+                  <div className="mt-4 inline-flex items-center gap-2 rounded-full border border-truffle/15 bg-white p-1">
+                    <button
+                      type="button"
+                      onClick={() => onUpdateQuantity(item.product.id, item.quantity - 1)}
+                      className="h-9 w-9 rounded-full bg-almond text-xl text-truffle transition hover:bg-biscuit"
+                    >
+                      -
+                    </button>
+                    <span className="w-10 text-center font-semibold text-truffle">{item.quantity}</span>
+                    <button
+                      type="button"
+                      onClick={() => onUpdateQuantity(item.product.id, item.quantity + 1)}
+                      className="h-9 w-9 rounded-full bg-almond text-xl text-truffle transition hover:bg-biscuit"
+                    >
+                      +
+                    </button>
+                  </div>
+                </div>
               </div>
-            </div>
-          </div>
-        </motion.article>
+            </motion.article>
+          ))}
+        </div>
 
         <motion.aside
           initial={{ opacity: 0, y: 24 }}
@@ -144,7 +149,7 @@ export default function CartPage({ cartProduct, cartQuantity, onUpdateQuantity }
             Proceed To Checkout
           </Link>
           <Link
-            to={`/product/${cartProduct.id}`}
+            to="/product"
             className="btn-hover mt-3 inline-flex w-full justify-center rounded-full border border-truffle/20 bg-white px-6 py-3 text-sm font-semibold uppercase tracking-[0.2em] text-truffle transition hover:bg-almond"
           >
             Continue Shopping

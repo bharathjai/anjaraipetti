@@ -88,21 +88,27 @@ export function generateInvoicePDF(order) {
       doc.text("Price", 360, tableTop + 10, { width: 70, align: "right" });
       doc.text("Subtotal", 450, tableTop + 10, { width: 80, align: "right" });
       
-      // Table Row
-      const rowY = tableTop + 45;
-      doc.fillColor(COLORS.espresso).fontSize(10).font("Helvetica-Bold");
-      doc.text(order.productName, 65, rowY);
+      // Table Rows
+      let rowY = tableTop + 45;
+      const items = order.items || [];
       
-      doc.fillColor(COLORS.truffle).font("Helvetica");
-      doc.text(order.quantity.toString(), 300, rowY, { width: 40, align: "center" });
-      doc.text(`INR ${order.unitPrice}`, 360, rowY, { width: 70, align: "right" });
-      doc.text(`INR ${order.subtotal}`, 450, rowY, { width: 80, align: "right" });
+      items.forEach((item, index) => {
+        doc.fillColor(COLORS.espresso).fontSize(10).font("Helvetica-Bold");
+        doc.text(item.productName, 65, rowY);
+        
+        doc.fillColor(COLORS.truffle).font("Helvetica");
+        doc.text(item.quantity.toString(), 300, rowY, { width: 40, align: "center" });
+        doc.text(`INR ${item.unitPrice}`, 360, rowY, { width: 70, align: "right" });
+        doc.text(`INR ${item.subtotal}`, 450, rowY, { width: 80, align: "right" });
+        
+        rowY += 25;
+      });
       
       // Table Bottom Border
-      doc.moveTo(50, rowY + 25).lineTo(545, rowY + 25).strokeColor(COLORS.lightBorder).stroke();
+      doc.moveTo(50, rowY).lineTo(545, rowY).strokeColor(COLORS.lightBorder).stroke();
       
       // --- TOTALS ---
-      const totalsY = rowY + 45;
+      const totalsY = rowY + 20;
       
       // Totals Box
       doc.roundedRect(305, totalsY, 240, 75, 8).fillAndStroke(COLORS.porcelain, COLORS.lightBorder);
