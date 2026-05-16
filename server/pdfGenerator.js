@@ -7,7 +7,9 @@ const COLORS = {
   truffle: "#5c433b",
   almond: "#f2ebd9",
   porcelain: "#fcfcfc",
-  lightBorder: "#e5ded6"
+  lightBorder: "#e5ded6",
+  accent: "#d4af37", // Gold accent
+  bgWatermark: "#f5f1eb"
 };
 
 export function generateInvoicePDF(order) {
@@ -22,24 +24,38 @@ export function generateInvoicePDF(order) {
         resolve(pdfData);
       });
 
+      // --- PAGE BACKGROUND ---
+      // Fill entire page with a very soft porcelain background
+      doc.rect(0, 0, 595.28, 841.89).fill(COLORS.porcelain);
+
+      // Subtle background watermark (bottom right and top left)
+      doc.circle(600, 800, 250).fill(COLORS.bgWatermark);
+      doc.circle(0, 300, 150).fill(COLORS.bgWatermark);
+
       // --- HEADER SECTION ---
       // Background for header
-      doc.rect(0, 0, 600, 140).fill(COLORS.espresso);
+      doc.rect(0, 0, 595.28, 160).fill(COLORS.espresso);
+      
+      // Decorative header patterns
+      doc.circle(50, 0, 120).fillOpacity(0.04).fill(COLORS.porcelain);
+      doc.circle(450, -20, 150).fillOpacity(0.04).fill(COLORS.porcelain);
+      doc.fillOpacity(1); // reset opacity
       
       // Brand Name
-      doc.fillColor(COLORS.porcelain).fontSize(32).font("Helvetica-Bold").text("Anjaraipetti", 50, 45);
-      doc.fillColor(COLORS.almond).fontSize(12).font("Helvetica").text("Premium Indian Masala", 50, 85);
+      doc.fillColor(COLORS.accent).fontSize(9).font("Helvetica-Bold").text("NAMMA VEETU", 50, 45, { characterSpacing: 2 });
+      doc.fillColor(COLORS.porcelain).fontSize(34).font("Helvetica-Bold").text("Anjaraipetti", 50, 60);
+      doc.fillColor(COLORS.almond).fontSize(11).font("Helvetica-Oblique").text("Premium Kitchen Essentials", 50, 102);
       
       // Invoice Details (Top Right)
-      doc.fillColor(COLORS.porcelain).fontSize(10).font("Helvetica-Bold").text("INVOICE", 400, 45, { align: "right" });
-      doc.font("Helvetica").fontSize(10).text(`# ${order.invoiceNumber}`, { align: "right" });
+      doc.fillColor(COLORS.accent).fontSize(14).font("Helvetica-Bold").text("INVOICE", 400, 45, { align: "right", characterSpacing: 2 });
+      doc.fillColor(COLORS.porcelain).font("Helvetica").fontSize(10).text(`# ${order.invoiceNumber}`, { align: "right" });
       doc.text(`Date: ${new Date(order.createdAt).toLocaleDateString("en-IN")}`, { align: "right" });
 
       // Reset fill color for the rest of the document
       doc.fillColor(COLORS.truffle);
 
       // --- CUSTOMER & PAYMENT INFO ---
-      const infoTop = 180;
+      const infoTop = 200;
       
       // Bill To Box
       doc.roundedRect(50, infoTop, 240, 110, 8).fillAndStroke(COLORS.porcelain, COLORS.lightBorder);
@@ -63,9 +79,7 @@ export function generateInvoicePDF(order) {
       doc.font("Helvetica").text(`Status: `, 320, payY, { continued: true }).font("Helvetica-Bold").fillColor("#2e7d32").text(order.payment.status);
 
       // --- ORDER TABLE ---
-      const tableTop = 330;
-      
-      // Table Header Background
+      const tableTop = 350;
       doc.rect(50, tableTop, 495, 30).fill(COLORS.almond);
       
       doc.fillColor(COLORS.cocoa).fontSize(10).font("Helvetica-Bold");
@@ -102,7 +116,9 @@ export function generateInvoicePDF(order) {
       doc.fillColor(COLORS.cocoa).text(`INR ${order.grandTotal}`, 420, totalsY + 45, { width: 110, align: "right" });
 
       // --- FOOTER ---
-      doc.fillColor(COLORS.truffle).fontSize(10).font("Helvetica-Oblique").text("Thank you for choosing Anjaraipetti!", 50, 750, { align: "center" });
+      doc.moveTo(50, 720).lineTo(545, 720).strokeColor(COLORS.lightBorder).stroke();
+      doc.fillColor(COLORS.espresso).fontSize(12).font("Helvetica-Bold").text("Thank you for choosing authenticity.", 50, 740, { align: "center" });
+      doc.fillColor(COLORS.truffle).fontSize(9).font("Helvetica").text("Your support keeps tradition alive.", 50, 760, { align: "center" });
 
       doc.end();
     } catch (error) {
