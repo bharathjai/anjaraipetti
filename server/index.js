@@ -552,7 +552,7 @@ async function createFinalOrder({ productId, quantity, customer, address, paymen
     address,
     payment,
     status: "Order confirmed",
-    eta: "2-4 business days",
+    eta: "2 or 3 business days",
     createdAt: new Date().toISOString()
   };
 
