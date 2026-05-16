@@ -122,9 +122,9 @@ const razorpayClient =
 
 const transporter = nodemailer.createTransport({
   host: "smtp.gmail.com",
-  port: 465,
-  secure: true,
-  // Force IPv4 resolution
+  port: 587,
+  secure: false, // false for 587 (uses STARTTLS)
+  requireTLS: true,
   family: 4,
   auth: {
     user: process.env.GMAIL_USER || "",
