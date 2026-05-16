@@ -17,31 +17,30 @@ export default function ProductsPage({ products }) {
         </p>
       </div>
       
-      <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+      <div className="grid grid-cols-2 gap-6">
         {products.map((product, index) => (
-          <motion.article
+          <Link
             key={product.id}
-            initial={{ opacity: 0, y: 24 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.45, delay: index * 0.05 }}
-            className="flex flex-col rounded-2xl border border-truffle/10 bg-white/70 p-5 shadow-[0_20px_40px_rgba(90,50,25,0.08)] backdrop-blur-lg"
+            to={`/product/${product.id}`}
+            className="flex"
           >
-            <img
-              src={product.image}
-              alt={product.name}
-              className="mb-5 aspect-square w-full rounded-xl object-contain mix-blend-multiply"
-            />
-            <h3 className="font-display text-2xl text-truffle">{product.name}</h3>
-            <p className="mt-1 flex-1 text-xs uppercase tracking-[0.2em] text-cocoa/70">{product.subtitle}</p>
-            <p className="mt-4 text-xs font-semibold text-truffle/60 uppercase tracking-[0.1em]">Starts from</p>
-            <p className="text-lg font-bold text-cocoa">INR {product.price}</p>
-            <Link
-              to={`/product/${product.id}`}
-              className="btn-hover mt-5 inline-flex w-full items-center justify-center rounded-full bg-truffle px-4 py-3 text-xs font-semibold uppercase tracking-[0.18em] text-porcelain transition hover:bg-espresso"
+            <motion.article
+              initial={{ opacity: 0, y: 24 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.45, delay: index * 0.05 }}
+              className="flex w-full flex-col rounded-2xl border border-truffle/10 bg-white/70 p-5 shadow-[0_20px_40px_rgba(90,50,25,0.08)] backdrop-blur-lg transition hover:shadow-luxe hover:-translate-y-1 hover:border-truffle/25 cursor-pointer"
             >
-              Select Options
-            </Link>
-          </motion.article>
+              <img
+                src={product.image}
+                alt={product.name}
+                className="mb-5 aspect-square w-full rounded-xl object-contain mix-blend-multiply"
+              />
+              <h3 className="font-display text-2xl text-truffle">{product.name}</h3>
+              <p className="mt-1 flex-1 text-xs uppercase tracking-[0.2em] text-cocoa/70">{product.subtitle}</p>
+              <p className="mt-4 text-xs font-semibold text-truffle/60 uppercase tracking-[0.1em]">Starts from</p>
+              <p className="text-lg font-bold text-cocoa">INR {product.price}</p>
+            </motion.article>
+          </Link>
         ))}
       </div>
     </section>
