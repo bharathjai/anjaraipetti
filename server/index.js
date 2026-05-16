@@ -11,7 +11,11 @@ import jwt from "jsonwebtoken";
 import mongoose from "mongoose";
 import Razorpay from "razorpay";
 import nodemailer from "nodemailer";
+import dns from "node:dns";
 import { generateInvoicePDF } from "./pdfGenerator.js";
+
+// Force IPv4 for Nodemailer to prevent ENETUNREACH on Render's IPv6-less containers
+dns.setDefaultResultOrder("ipv4first");
 
 const app = express();
 app.use(cors());
