@@ -1,0 +1,198 @@
+/* ══════════════════════════════════════════════════════════════
+   Truck Order Button — HD / cinematic delivery animation
+   ══════════════════════════════════════════════════════════════ */
+
+/* ── base button ─────────────────────────────────────────────── */
+.tob {
+  position:        relative;
+  display:         flex;
+  align-items:     center;
+  justify-content: center;
+  width:           100%;
+  min-height:      64px;          /* taller so the truck has room */
+  padding:         14px 24px;
+  border:          none;
+  outline:         none;
+  border-radius:   16px;
+  overflow:        hidden;
+  cursor:          pointer;
+  background:      #2a1508;
+  color:           #fff;
+  font-family:     inherit;
+  font-size:       13px;
+  font-weight:     700;
+  letter-spacing:  0.2em;
+  text-transform:  uppercase;
+  -webkit-appearance: none;
+  -webkit-tap-highlight-color: transparent;
+  transition:      background 0.5s ease, box-shadow 0.3s ease;
+  box-shadow:      0 4px 24px rgba(42, 21, 8, 0.45);
+}
+.tob:hover:not(:disabled) {
+  background:  #3b2010;
+  box-shadow:  0 6px 32px rgba(42, 21, 8, 0.55);
+}
+.tob:disabled {
+  opacity: 0.55;
+  cursor:  not-allowed;
+}
+
+/* ── running state ───────────────────────────────────────────── */
+.tob--running {
+  cursor: default;
+  background: #1a0e05;
+}
+
+/* ── done (success) state ────────────────────────────────────── */
+.tob--done {
+  background:  #14532d;
+  box-shadow:  0 4px 24px rgba(20, 83, 45, 0.5);
+}
+.tob--done:hover:not(:disabled) {
+  background: #166534;
+}
+
+/* ══════════════════════════════════════════════════════════════
+   Road fill — amber sweep + dashed road lines
+   ══════════════════════════════════════════════════════════════ */
+.tob__road {
+  position:      absolute;
+  inset:         0;
+  border-radius: inherit;
+  background:    linear-gradient(180deg, #c07532 0%, #a8622a 100%);
+  transform:     scaleX(0);
+  transform-origin: left center;
+  transition:    none;
+  overflow:      hidden;
+  display:       flex;
+  align-items:   center;
+  gap:           20px;
+  padding-left:  20px;
+}
+
+/* animate the road fill on running */
+.tob--running .tob__road {
+  transform:  scaleX(1);
+  transition: transform 5.5s cubic-bezier(0.22, 1, 0.36, 1);
+}
+/* fade road on done */
+.tob--done .tob__road {
+  opacity:    0;
+  transition: opacity 0.35s ease;
+}
+
+/* ── road dashes ─────────────────────────────────────────────── */
+.tob__dash {
+  flex-shrink:   0;
+  width:         28px;
+  height:        3px;
+  border-radius: 2px;
+  background:    rgba(255,255,255,0.35);
+  animation:     none;
+}
+.tob--running .tob__dash {
+  animation: roadDash 0.9s linear infinite;
+}
+.tob__dash:nth-child(2) { animation-delay: -0.11s; }
+.tob__dash:nth-child(3) { animation-delay: -0.22s; }
+.tob__dash:nth-child(4) { animation-delay: -0.33s; }
+.tob__dash:nth-child(5) { animation-delay: -0.44s; }
+
+@keyframes roadDash {
+  0%   { transform: translateX(0);    opacity: 0.35; }
+  50%  { opacity: 0.6; }
+  100% { transform: translateX(-80px); opacity: 0.35; }
+}
+
+/* ══════════════════════════════════════════════════════════════
+   Labels
+   ══════════════════════════════════════════════════════════════ */
+.tob__label {
+  position:        absolute;
+  inset:           0;
+  display:         flex;
+  align-items:     center;
+  justify-content: center;
+  gap:             10px;
+  font-size:       13px;
+  font-weight:     700;
+  letter-spacing:  0.2em;
+  text-transform:  uppercase;
+  pointer-events:  none;
+  z-index:         4;
+  transition:      opacity 0.35s ease, transform 0.35s ease;
+}
+
+/* ── default label ── */
+.tob__label--default {
+  opacity:   1;
+  transform: translateY(0);
+  color:     #fff;
+}
+.tob--running .tob__label--default,
+.tob--done    .tob__label--default {
+  opacity:   0;
+  transform: translateY(-16px);
+}
+
+/* ── success label ── */
+.tob__label--success {
+  opacity:   0;
+  transform: translateY(16px);
+  color:     #fff;
+}
+.tob--done .tob__label--success {
+  opacity:   1;
+  transform: translateY(0);
+  transition-delay: 0.15s;
+}
+
+/* ── tick circle ── */
+.tob__tick {
+  width:  22px;
+  height: 22px;
+  flex-shrink: 0;
+}
+.tob--done .tob__tick-path {
+  stroke-dashoffset: 0;
+  transition: stroke-dashoffset 0.5s ease 0.3s;
+}
+
+/* ══════════════════════════════════════════════════════════════
+   HD Truck
+   ══════════════════════════════════════════════════════════════ */
+.tob__truck {
+  position:    absolute;
+  bottom:      4px;
+  left:        0;
+  width:       90px;
+  height:      34px;
+  z-index:     3;
+  transform:   translateX(-100px);
+  will-change: transform;
+  /* transition driven by JS */
+}
+.tob__truck svg {
+  width:  100%;
+  height: 100%;
+  /* crisp SVG rendering */
+  shape-rendering:  geometricPrecision;
+  text-rendering:   geometricPrecision;
+  image-rendering:  optimizeQuality;
+}
+
+/* hide truck when done */
+.tob--done .tob__truck {
+  opacity:    0;
+  transition: opacity 0.25s ease;
+}
+
+/* ── wheel rim spin ─────────────────────────────────────────── */
+.tob--running .tob__rim {
+  transform-box:    fill-box;
+  transform-origin: center;
+  animation: spinRim 0.4s linear infinite;
+}
+@keyframes spinRim {
+  to { transform: rotate(360deg); }
+}

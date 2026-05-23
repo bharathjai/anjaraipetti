@@ -2,6 +2,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import { useMemo, useRef, useState } from "react";
 import { Link, Navigate, useNavigate } from "react-router-dom";
 import { API_BASE_URL } from "../config/runtime";
+import TruckOrderButton from "../components/TruckOrderButton";
 
 function formatINR(value) {
   return new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR", maximumFractionDigits: 0 }).format(value);
@@ -37,6 +38,8 @@ const initialForm = {
 export default function CheckoutPage({ cartItems, onClearCart }) {
   const navigate = useNavigate();
   const formRef = useRef(null);
+  const pendingOrderId = useRef("");   // holds orderId until animation completes
+  const isAnimating   = useRef(false); // true while truck animation is running
   const [form, setForm] = useState(initialForm);
   const [errors, setErrors] = useState({});
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -47,7 +50,8 @@ export default function CheckoutPage({ cartItems, onClearCart }) {
   const subtotal = useMemo(() => cartItems?.reduce((sum, item) => sum + item.product.price * item.quantity, 0) || 0, [cartItems]);
   const total = subtotal;
 
-  if ((!cartItems || cartItems.length === 0) && !isSubmitting && !confirmedOrderId) {
+  // Don't redirect if truck animation is in progress
+  if ((!cartItems || cartItems.length === 0) && !isSubmitting && !confirmedOrderId && !isAnimating.current) {
     return <Navigate to="/cart" replace />;
   }
 
@@ -93,9 +97,18 @@ export default function CheckoutPage({ cartItems, onClearCart }) {
     pincode: form.pincode.trim()
   };
 
+  // Called by the API — store orderId, but DON'T clear cart yet (animation still running)
   const showConfirmation = (nextOrderId) => {
-    setConfirmedOrderId(nextOrderId);
-    if (onClearCart) onClearCart();
+    pendingOrderId.current = nextOrderId;
+  };
+
+  // Called by TruckOrderButton when the truck fully exits
+  const handleAnimationDone = () => {
+    isAnimating.current = false;
+    if (pendingOrderId.current) {
+      setConfirmedOrderId(pendingOrderId.current);
+      if (onClearCart) onClearCart(); // clear cart only after showing confirmation
+    }
   };
 
   const placeCodOrder = async () => {
@@ -199,29 +212,36 @@ export default function CheckoutPage({ cartItems, onClearCart }) {
     showConfirmation(result);
   };
 
-  const handleSubmit = async (event) => {
-    event.preventDefault();
+  // Runs BEFORE animation — throws if form is invalid
+  const validateForm = () => {
     setServerError("");
     const nextErrors = validate();
     setErrors(nextErrors);
     if (Object.keys(nextErrors).length > 0) {
       focusFirstInvalidField(nextErrors);
-      return;
+      throw new Error("validation");
     }
+  };
 
+  // Runs DURING animation — throws on API/network failure
+  const placeOrder = async () => {
+    isAnimating.current = true;   // block the redirect guard
+    setIsSubmitting(true);
     try {
-      setIsSubmitting(true);
       if (form.paymentMethod === "cod") {
         await placeCodOrder();
       } else {
         await placeRazorpayOrder();
       }
     } catch (error) {
+      isAnimating.current = false;
       setServerError(error.message || "Unable to place order right now. Please try again.");
+      throw error;
     } finally {
       setIsSubmitting(false);
     }
   };
+
 
   const inputClass =
     "mt-1 w-full rounded-xl border border-truffle/20 bg-white/80 px-4 py-3 text-sm text-truffle outline-none transition focus:border-cocoa focus:ring-2 focus:ring-cocoa/15";
@@ -233,7 +253,7 @@ export default function CheckoutPage({ cartItems, onClearCart }) {
         Checkout
       </motion.h1>
 
-      <form ref={formRef} onSubmit={handleSubmit} className="mt-8 grid gap-6 lg:grid-cols-[1.2fr_0.8fr]">
+      <form ref={formRef} onSubmit={e => e.preventDefault()} className="mt-8 grid gap-6 lg:grid-cols-[1.2fr_0.8fr]">
         <motion.div
           initial={{ opacity: 0, y: 18 }}
           animate={{ opacity: 1, y: 0 }}
@@ -348,13 +368,16 @@ export default function CheckoutPage({ cartItems, onClearCart }) {
               </div>
             </div>
           </div>
-          <button
-            type="submit"
-            disabled={isSubmitting}
-            className="mt-6 w-full rounded-full bg-truffle px-6 py-3 text-sm font-semibold uppercase tracking-[0.2em] text-porcelain transition hover:bg-espresso disabled:cursor-not-allowed disabled:opacity-65"
-          >
-            {isSubmitting ? "Processing..." : form.paymentMethod === "cod" ? "Place COD Order" : "Pay with Razorpay"}
-          </button>
+          <div className="mt-6">
+            <TruckOrderButton
+              label={form.paymentMethod === "cod" ? "Place COD Order" : "Pay with Razorpay"}
+              successLabel="Order Placed"
+              disabled={isSubmitting}
+              onValidate={validateForm}
+              onClick={placeOrder}
+              onDone={handleAnimationDone}
+            />
+          </div>
           <Link
             to="/cart"
             className="btn-hover mt-3 inline-flex w-full justify-center rounded-full border border-truffle/20 bg-white px-6 py-3 text-sm font-semibold uppercase tracking-[0.2em] text-truffle transition hover:bg-almond"
