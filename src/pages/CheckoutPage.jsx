@@ -1,5 +1,5 @@
-import { AnimatePresence, motion } from "framer-motion";
-import { useMemo, useRef, useState } from "react";
+import { motion } from "framer-motion";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, Navigate, useNavigate } from "react-router-dom";
 import { API_BASE_URL } from "../config/runtime";
 import TruckOrderButton from "../components/TruckOrderButton";
@@ -40,18 +40,55 @@ export default function CheckoutPage({ cartItems, onClearCart }) {
   const formRef = useRef(null);
   const pendingOrderId = useRef("");   // holds orderId until animation completes
   const isAnimating   = useRef(false); // true while truck animation is running
+  const isConfirmed   = useRef(false); // true after animation completes to bypass redirect guard
+  const isAnimationFinished = useRef(false); // true after GSAP animation completes
   const [form, setForm] = useState(initialForm);
   const [errors, setErrors] = useState({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isDownloading, setIsDownloading] = useState(false);
   const [serverError, setServerError] = useState("");
   const [confirmedOrderId, setConfirmedOrderId] = useState("");
+  const [isFetchingPincode, setIsFetchingPincode] = useState(false);
+
+  useEffect(() => {
+    const pin = form.pincode.trim();
+    if (/^\d{6}$/.test(pin)) {
+      const fetchAddress = async () => {
+        setIsFetchingPincode(true);
+        setErrors((prev) => {
+          const next = { ...prev };
+          delete next.pincode;
+          return next;
+        });
+        try {
+          const response = await fetch(`${API_BASE_URL}/api/pincode/${pin}`);
+          if (!response.ok) throw new Error();
+          const payload = await response.json();
+          if (payload.ok && payload.data && payload.data[0] && payload.data[0].Status === "Success" && payload.data[0].PostOffice && payload.data[0].PostOffice[0]) {
+            const po = payload.data[0].PostOffice[0];
+            setForm((prev) => ({
+              ...prev,
+              city: po.District || po.Division || prev.city,
+              state: po.State || prev.state
+            }));
+          } else {
+            setErrors((prev) => ({ ...prev, pincode: "Invalid pincode" }));
+          }
+        } catch {
+          // ignore network errors silently
+        } finally {
+          setIsFetchingPincode(false);
+        }
+      };
+      fetchAddress();
+    }
+  }, [form.pincode]);
 
   const subtotal = useMemo(() => cartItems?.reduce((sum, item) => sum + item.product.price * item.quantity, 0) || 0, [cartItems]);
   const total = subtotal;
 
-  // Don't redirect if truck animation is in progress
-  if ((!cartItems || cartItems.length === 0) && !isSubmitting && !confirmedOrderId && !isAnimating.current) {
+  // Don't redirect if truck animation is in progress or order is confirmed
+  if ((!cartItems || cartItems.length === 0) && !isSubmitting && !confirmedOrderId && !isAnimating.current && !isConfirmed.current) {
     return <Navigate to="/cart" replace />;
   }
 
@@ -100,12 +137,21 @@ export default function CheckoutPage({ cartItems, onClearCart }) {
   // Called by the API — store orderId, but DON'T clear cart yet (animation still running)
   const showConfirmation = (nextOrderId) => {
     pendingOrderId.current = nextOrderId;
+    // If the animation has already finished driving, show the popup immediately!
+    if (isAnimationFinished.current) {
+      isConfirmed.current = true;
+      setConfirmedOrderId(nextOrderId);
+      if (onClearCart) onClearCart();
+    }
   };
 
   // Called by TruckOrderButton when the truck fully exits
   const handleAnimationDone = () => {
     isAnimating.current = false;
+    isAnimationFinished.current = true;
+    // If the network request has already completed, show the popup!
     if (pendingOrderId.current) {
+      isConfirmed.current = true;
       setConfirmedOrderId(pendingOrderId.current);
       if (onClearCart) onClearCart(); // clear cart only after showing confirmation
     }
@@ -291,6 +337,30 @@ export default function CheckoutPage({ cartItems, onClearCart }) {
                 <label className={labelClass}>Landmark (Optional)</label>
                 <input name="landmark" value={form.landmark} onChange={handleInput} className={inputClass} />
               </div>
+              <div className="relative">
+                <label className={labelClass}>Pincode</label>
+                <div className="relative">
+                  <input
+                    name="pincode"
+                    value={form.pincode}
+                    onChange={(e) => {
+                      const val = e.target.value.replace(/\D/g, "").slice(0, 6);
+                      handleInput({ target: { name: "pincode", value: val } });
+                    }}
+                    className={inputClass}
+                    placeholder="Enter 6-digit Pincode"
+                  />
+                  {isFetchingPincode && (
+                    <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-1.5 text-xs text-cocoa/50">
+                      <svg className="animate-spin h-5 w-5 text-cocoa" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                      </svg>
+                    </div>
+                  )}
+                </div>
+                {errors.pincode ? <p className="mt-1 text-xs text-red-600">{errors.pincode}</p> : null}
+              </div>
               <div>
                 <label className={labelClass}>City</label>
                 <input name="city" value={form.city} onChange={handleInput} className={inputClass} />
@@ -300,11 +370,6 @@ export default function CheckoutPage({ cartItems, onClearCart }) {
                 <label className={labelClass}>State</label>
                 <input name="state" value={form.state} onChange={handleInput} className={inputClass} />
                 {errors.state ? <p className="mt-1 text-xs text-red-600">{errors.state}</p> : null}
-              </div>
-              <div>
-                <label className={labelClass}>Pincode</label>
-                <input name="pincode" value={form.pincode} onChange={handleInput} className={inputClass} />
-                {errors.pincode ? <p className="mt-1 text-xs text-red-600">{errors.pincode}</p> : null}
               </div>
             </div>
           </section>
@@ -387,40 +452,57 @@ export default function CheckoutPage({ cartItems, onClearCart }) {
         </motion.aside>
       </form>
 
-      <AnimatePresence>
-        {confirmedOrderId ? (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[60] flex items-center justify-center bg-black/55 p-6 backdrop-blur-sm"
-          >
-            <motion.div
-              initial={{ scale: 0.88, opacity: 0, y: 20 }}
-              animate={{ scale: 1, opacity: 1, y: 0 }}
-              className="w-full max-w-md rounded-3xl border border-white/25 bg-white/90 p-8 text-center shadow-2xl"
-            >
-              <motion.div
-                initial={{ scale: 0.8, rotate: -12, opacity: 0 }}
-                animate={{ scale: 1, rotate: 0, opacity: 1 }}
-                transition={{ duration: 0.45 }}
-                className="mx-auto flex h-20 w-20 items-center justify-center rounded-full bg-emerald-100"
-              >
+      {confirmedOrderId ? (
+        <>
+          <style>{`
+            @keyframes confirmationFadeIn {
+              from { opacity: 0; }
+              to { opacity: 1; }
+            }
+            @keyframes confirmationScaleIn {
+              from { transform: scale(0.9) translateY(20px); opacity: 0; }
+              to { transform: scale(1) translateY(0); opacity: 1; }
+            }
+            @keyframes confirmationPopCircle {
+              from { transform: scale(0.8) rotate(-12deg); opacity: 0; }
+              to { transform: scale(1) rotate(0deg); opacity: 1; }
+            }
+            @keyframes confirmationDrawCheckmark {
+              from { stroke-dashoffset: 50; }
+              to { stroke-dashoffset: 0; }
+            }
+            .animate-confirmation-fade-in {
+              animation: confirmationFadeIn 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+            }
+            .animate-confirmation-scale-in {
+              animation: confirmationScaleIn 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+            }
+            .animate-confirmation-pop-circle {
+              opacity: 0;
+              animation: confirmationPopCircle 0.45s cubic-bezier(0.34, 1.56, 0.64, 1) 0.1s forwards;
+            }
+            .animate-confirmation-draw-checkmark {
+              stroke-dasharray: 50;
+              stroke-dashoffset: 50;
+              animation: confirmationDrawCheckmark 0.5s cubic-bezier(0.4, 0, 0.2, 1) 0.3s forwards;
+            }
+          `}</style>
+          <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/55 p-6 backdrop-blur-sm animate-confirmation-fade-in">
+            <div className="w-full max-w-md rounded-3xl border border-white/25 bg-white/90 p-8 text-center shadow-2xl animate-confirmation-scale-in">
+              <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-full bg-emerald-100 animate-confirmation-pop-circle">
                 <svg width="46" height="46" viewBox="0 0 52 52" aria-hidden="true">
                   <circle cx="26" cy="26" r="22" fill="none" stroke="#34D399" strokeWidth="4" />
-                  <motion.path
+                  <path
                     d="M15 27L23 34L37 19"
                     fill="none"
                     stroke="#059669"
                     strokeWidth="4"
                     strokeLinecap="round"
                     strokeLinejoin="round"
-                    initial={{ pathLength: 0 }}
-                    animate={{ pathLength: 1 }}
-                    transition={{ duration: 0.45, delay: 0.15 }}
+                    className="animate-confirmation-draw-checkmark"
                   />
                 </svg>
-              </motion.div>
+              </div>
 
               <h3 className="mt-5 font-display text-4xl text-emerald-800">Order Confirmed</h3>
               <p className="mt-2 text-xs uppercase tracking-[0.2em] text-truffle/70">Order ID: {confirmedOrderId}</p>
@@ -460,10 +542,10 @@ export default function CheckoutPage({ cartItems, onClearCart }) {
                   View Order Details
                 </Link>
               </div>
-            </motion.div>
-          </motion.div>
-        ) : null}
-      </AnimatePresence>
+            </div>
+          </div>
+        </>
+      ) : null}
     </section>
   );
 }

@@ -1,198 +1,367 @@
 /* ══════════════════════════════════════════════════════════════
-   Truck Order Button — HD / cinematic delivery animation
+   3D GSAP Truck Order Button — Custom Culinary Theme Styling
    ══════════════════════════════════════════════════════════════ */
 
-/* ── base button ─────────────────────────────────────────────── */
-.tob {
-  position:        relative;
-  display:         flex;
-  align-items:     center;
-  justify-content: center;
-  width:           100%;
-  min-height:      64px;          /* taller so the truck has room */
-  padding:         14px 24px;
-  border:          none;
-  outline:         none;
-  border-radius:   16px;
-  overflow:        hidden;
-  cursor:          pointer;
-  background:      #2a1508;
-  color:           #fff;
-  font-family:     inherit;
-  font-size:       13px;
-  font-weight:     700;
-  letter-spacing:  0.2em;
-  text-transform:  uppercase;
+.truck-button {
+  /* Dynamic GSAP Unitless custom property defaults */
+  --rx: 0deg;
+  --br: 16px;
+  --progress: 0;
+  --offset: 16px;
+  --truck-x: 4;
+  --truck-y-n: -26;
+  --truck-y: 0;
+  --box-x: -24;
+  --box-y: -6;
+  --box-s: 0.5;
+  --box-o: 0;
+  --bx: 0;
+  --hx: 0;
+
+  /* Theme colors */
+  --color: #ffffff;
+  --background: #4b2c1a;          /* Truffle - culinary dark brown */
+  --background-hover: #5e3822;    /* Warm Chocolate */
+  --tick: #10b981;                /* Emerald Green */
+  --base: #2a1a12;                /* Espresso - undercarriage */
+  --wheel: #1a0e05;               /* Tires */
+  --wheel-inner: #d0843e;         /* Amber - wheel rim */
+  --wheel-dot: #ffffff;           /* Axle dot */
+  --back: #c07532;                /* Warm Amber container */
+  --back-inner: #8a4a22;          /* Cocoa brown cargo inside */
+  --back-inner-shadow: #5d3317;   /* Dark cocoa cargo shadow */
+  --front: #f4eee4;               /* Almond cream cab */
+  --front-shadow: #e6d6c0;        /* Biscuit cream cab shadow */
+  --front-light: #fff8b1;         /* Bright yellow headlights */
+  --window: #4b2c1a;              /* Truffle window trim */
+  --window-shadow: #6f3f1e;       /* Cocoa window tint */
+  --street: #6f3f1e;              /* Cocoa - street */
+  --street-fill: #d0843e;         /* Amber - street progress/fill */
+  --box: #d0843e;                 /* Amber - culinary box */
+  --box-shadow: #8a4a22;          /* Cocoa box shadow */
+
+  position: relative;
+  display: block;
+  width: 100%;
+  max-width: 340px;               /* Fits sidebar perfectly */
+  margin: 0 auto;
+  min-height: 52px;
+  padding: 14px 0;
+  cursor: pointer;
+  text-align: center;
+  border: none;
+  outline: none;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--color) !important;
+  background: var(--background) !important;
+  border-radius: var(--br, 16px) !important;
   -webkit-appearance: none;
   -webkit-tap-highlight-color: transparent;
-  transition:      background 0.5s ease, box-shadow 0.3s ease;
-  box-shadow:      0 4px 24px rgba(42, 21, 8, 0.45);
-}
-.tob:hover:not(:disabled) {
-  background:  #3b2010;
-  box-shadow:  0 6px 32px rgba(42, 21, 8, 0.55);
-}
-.tob:disabled {
-  opacity: 0.55;
-  cursor:  not-allowed;
+
+  /* 2D on load to prevent browser 3D stacking context failures, switches to 3D during animation */
+  transform: rotateX(var(--rx, 0deg)) translateZ(0) !important;
+  will-change: auto !important;
+  transition: transform 0.5s, border-radius 0.3s linear var(--br-d, 0s), background 0.3s ease, box-shadow 0.3s ease !important;
+  box-shadow: 0 8px 24px rgba(75, 44, 26, 0.25);
 }
 
-/* ── running state ───────────────────────────────────────────── */
-.tob--running {
-  cursor: default;
-  background: #1a0e05;
+/* Force hover & active styles to respect 3D rotation and override global transitions */
+.truck-button:hover:not(:disabled) {
+  background: var(--background-hover) !important;
+  box-shadow: 0 12px 32px rgba(75, 44, 26, 0.35);
+  transform: rotateX(var(--rx, 0deg)) translateZ(0) translateY(-2px) !important;
 }
 
-/* ── done (success) state ────────────────────────────────────── */
-.tob--done {
-  background:  #14532d;
-  box-shadow:  0 4px 24px rgba(20, 83, 45, 0.5);
-}
-.tob--done:hover:not(:disabled) {
-  background: #166534;
+.truck-button:active:not(:disabled) {
+  transform: rotateX(var(--rx, 0deg)) translateZ(0) scale(0.98) !important;
 }
 
-/* ══════════════════════════════════════════════════════════════
-   Road fill — amber sweep + dashed road lines
-   ══════════════════════════════════════════════════════════════ */
-.tob__road {
-  position:      absolute;
-  inset:         0;
-  border-radius: inherit;
-  background:    linear-gradient(180deg, #c07532 0%, #a8622a 100%);
-  transform:     scaleX(0);
-  transform-origin: left center;
-  transition:    none;
-  overflow:      hidden;
-  display:       flex;
-  align-items:   center;
-  gap:           20px;
-  padding-left:  20px;
+.truck-button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 
-/* animate the road fill on running */
-.tob--running .tob__road {
-  transform:  scaleX(1);
-  transition: transform 5.5s cubic-bezier(0.22, 1, 0.36, 1);
-}
-/* fade road on done */
-.tob--done .tob__road {
-  opacity:    0;
-  transition: opacity 0.35s ease;
-}
-
-/* ── road dashes ─────────────────────────────────────────────── */
-.tob__dash {
-  flex-shrink:   0;
-  width:         28px;
-  height:        3px;
-  border-radius: 2px;
-  background:    rgba(255,255,255,0.35);
-  animation:     none;
-}
-.tob--running .tob__dash {
-  animation: roadDash 0.9s linear infinite;
-}
-.tob__dash:nth-child(2) { animation-delay: -0.11s; }
-.tob__dash:nth-child(3) { animation-delay: -0.22s; }
-.tob__dash:nth-child(4) { animation-delay: -0.33s; }
-.tob__dash:nth-child(5) { animation-delay: -0.44s; }
-
-@keyframes roadDash {
-  0%   { transform: translateX(0);    opacity: 0.35; }
-  50%  { opacity: 0.6; }
-  100% { transform: translateX(-80px); opacity: 0.35; }
+/* 3D street background when rotated */
+.truck-button:before,
+.truck-button:after {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 100%;
+  height: 6px;
+  display: block;
+  background: var(--b, var(--street));
+  transform-origin: 0 100%;
+  transform: rotateX(90deg) scaleX(var(--sy, 1));
 }
 
-/* ══════════════════════════════════════════════════════════════
-   Labels
-   ══════════════════════════════════════════════════════════════ */
-.tob__label {
-  position:        absolute;
-  inset:           0;
-  display:         flex;
-  align-items:     center;
+.truck-button:after {
+  --sy: var(--progress, 0);
+  --b: var(--street-fill);
+}
+
+/* Labels styling — Clean transitions, explicit translateZ(12px) depth offset, and high stack indices */
+.truck-button .default {
+  display: block;
+  position: relative;            /* Lift off standard background stack */
+  z-index: 10;                   /* Highest stacking layer */
+  font-weight: 700;
+  font-size: 13px;
+  line-height: 24px;
+  color: #ffffff !important;
+  opacity: 1;
+  transform: translateZ(12px) translateY(0);
+  transition: opacity 0.3s ease, transform 0.3s ease;
+}
+
+.truck-button.animation .default {
+  opacity: 0;
+  transform: translateZ(12px) translateY(-12px);
+}
+
+.truck-button .success {
+  position: absolute;
+  top: 14px;
+  left: 0;
+  right: 0;
+  display: flex;
+  align-items: center;
   justify-content: center;
-  gap:             10px;
-  font-size:       13px;
-  font-weight:     700;
-  letter-spacing:  0.2em;
-  text-transform:  uppercase;
-  pointer-events:  none;
-  z-index:         4;
-  transition:      opacity 0.35s ease, transform 0.35s ease;
+  gap: 8px;
+  z-index: 10;                   /* Highest stacking layer */
+  font-weight: 700;
+  font-size: 13px;
+  line-height: 24px;
+  color: #ffffff !important;
+  opacity: 0;
+  transform: translateZ(12px) translateY(12px);
+  transition: opacity 0.3s ease, transform 0.3s ease;
 }
 
-/* ── default label ── */
-.tob__label--default {
-  opacity:   1;
-  transform: translateY(0);
-  color:     #fff;
-}
-.tob--running .tob__label--default,
-.tob--done    .tob__label--default {
-  opacity:   0;
-  transform: translateY(-16px);
+/* 3D rotated states — preserve-3d and perspective activated strictly during active animation */
+.truck-button.animation {
+  transform-style: preserve-3d !important;
+  perspective: 800px;
+  --rx: -90deg;
+  --br: 0px;
 }
 
-/* ── success label ── */
-.tob__label--success {
-  opacity:   0;
-  transform: translateY(16px);
-  color:     #fff;
-}
-.tob--done .tob__label--success {
-  opacity:   1;
-  transform: translateY(0);
-  transition-delay: 0.15s;
+.truck-button.animation.done {
+  --rx: 0deg;
+  --br: 16px;
+  --br-d: 0.2s;
+  background: #065f46 !important;            /* Premium dark emerald on success */
+  box-shadow: 0 8px 24px rgba(6, 95, 70, 0.3);
 }
 
-/* ── tick circle ── */
-.tob__tick {
-  width:  22px;
-  height: 22px;
-  flex-shrink: 0;
+.truck-button.animation.done:hover {
+  background: #047857 !important;
 }
-.tob--done .tob__tick-path {
-  stroke-dashoffset: 0;
-  transition: stroke-dashoffset 0.5s ease 0.3s;
+
+.truck-button.animation.done .success {
+  opacity: 1;
+  transform: translateZ(12px) translateY(0);
+}
+
+/* Success state tick checkmark */
+.truck-button .success svg {
+  width: 16px;
+  height: 16px;
+  display: inline-block;
+  vertical-align: top;
+  fill: none;
+  stroke: var(--tick);
+  stroke-width: 2.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-dasharray: 16px;
+  stroke-dashoffset: var(--offset, 16px);
+  transition: stroke-dashoffset 0.4s ease 0.45s;
 }
 
 /* ══════════════════════════════════════════════════════════════
-   HD Truck
+   Truck Anatomy & 3D placement
    ══════════════════════════════════════════════════════════════ */
-.tob__truck {
-  position:    absolute;
-  bottom:      4px;
-  left:        0;
-  width:       90px;
-  height:      34px;
-  z-index:     3;
-  transform:   translateX(-100px);
+
+.truck-button .truck {
+  position: absolute;
+  width: 72px;
+  height: 28px;
+  left: 0;
+  opacity: 0;                    /* Completely hidden in idle, fades in during animation */
   will-change: transform;
-  /* transition driven by JS */
-}
-.tob__truck svg {
-  width:  100%;
-  height: 100%;
-  /* crisp SVG rendering */
-  shape-rendering:  geometricPrecision;
-  text-rendering:   geometricPrecision;
-  image-rendering:  optimizeQuality;
+  transform: rotateX(90deg) translate3d(calc(var(--truck-x, 4) * 1px), calc(var(--truck-y-n, -26) * 1px), 12px);
+  transition: opacity 0.15s ease;
 }
 
-/* hide truck when done */
-.tob--done .tob__truck {
-  opacity:    0;
-  transition: opacity 0.25s ease;
+.truck-button.animation .truck {
+  opacity: 1;
 }
 
-/* ── wheel rim spin ─────────────────────────────────────────── */
-.tob--running .tob__rim {
-  transform-box:    fill-box;
-  transform-origin: center;
-  animation: spinRim 0.4s linear infinite;
+/* Tires */
+.truck-button .truck:before,
+.truck-button .truck:after {
+  content: "";
+  position: absolute;
+  bottom: -6px;
+  left: var(--l, 18px);
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  z-index: 2;
+  box-shadow: inset 0 0 0 2px var(--wheel), inset 0 0 0 4px var(--wheel-inner);
+  background: var(--wheel-dot);
+  transform: translateY(calc(var(--truck-y, 0) * -1px)) translateZ(0);
 }
-@keyframes spinRim {
-  to { transform: rotate(360deg); }
+
+.truck-button .truck:after {
+  --l: 54px;
+}
+
+/* Wheel hubs */
+.truck-button .truck .wheel,
+.truck-button .truck .wheel:before {
+  position: absolute;
+  bottom: var(--b, -6px);
+  left: var(--l, 6px);
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--wheel);
+  transform: translateZ(0);
+}
+
+.truck-button .truck .wheel {
+  transform: translateY(calc(var(--truck-y, 0) * -1px)) translateZ(0);
+}
+
+.truck-button .truck .wheel:before {
+  --l: 35px;
+  --b: 0;
+  content: "";
+}
+
+.truck-button .truck .front,
+.truck-button .truck .back,
+.truck-button .truck .box {
+  position: absolute;
+}
+
+/* Cargo container back */
+.truck-button .truck .back {
+  left: 0;
+  bottom: 0;
+  z-index: 1;
+  width: 47px;
+  height: 28px;
+  border-radius: 1px 1px 0 0;
+  background: linear-gradient(68deg, var(--back-inner) 0%, var(--back-inner) 22%, var(--back-inner-shadow) 22.1%, var(--back-inner-shadow) 100%);
+}
+
+.truck-button .truck .back:before,
+.truck-button .truck .back:after {
+  content: "";
+  position: absolute;
+}
+
+.truck-button .truck .back:before {
+  left: 11px;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 2;
+  border-radius: 0 1px 0 0;
+  background: var(--back);
+}
+
+/* Truck chassis/base */
+.truck-button .truck .back:after {
+  border-radius: 1px;
+  width: 73px;
+  height: 2px;
+  left: -1px;
+  bottom: -2px;
+  background: var(--base);
+}
+
+/* Cab front */
+.truck-button .truck .front {
+  left: 47px;
+  bottom: -1px;
+  height: 22px;
+  width: 24px;
+  clip-path: polygon(55% 0, 72% 44%, 100% 58%, 100% 100%, 0 100%, 0 0);
+  background: linear-gradient(84deg, var(--front-shadow) 0%, var(--front-shadow) 10%, var(--front) 12%, var(--front) 100%);
+}
+
+.truck-button .truck .front:before,
+.truck-button .truck .front:after {
+  content: "";
+  position: absolute;
+}
+
+/* Cab window */
+.truck-button .truck .front:before {
+  width: 7px;
+  height: 8px;
+  left: 7px;
+  top: 2px;
+  clip-path: polygon(0 0, 60% 0%, 100% 100%, 0% 100%);
+  background: linear-gradient(59deg, var(--window) 0%, var(--window) 57%, var(--window-shadow) 55%, var(--window-shadow) 100%);
+}
+
+/* Headlight */
+.truck-button .truck .front:after {
+  width: 3px;
+  height: 2px;
+  right: 0;
+  bottom: 3px;
+  background: var(--front-light);
+}
+
+/* Box cargo */
+.truck-button .truck .box {
+  width: 13px;
+  height: 13px;
+  right: 56px;
+  bottom: 0;
+  z-index: 1;
+  border-radius: 1px;
+  overflow: hidden;
+  transform: translate(calc(var(--box-x, -24) * 1px), calc(var(--box-y, -6) * 1px)) scale(var(--box-s, 0.5));
+  opacity: var(--box-o, 0);
+  background: linear-gradient(68deg, var(--box) 0%, var(--box) 50%, var(--box-shadow) 50.2%, var(--box-shadow) 100%);
+  background-size: 250% 100%;
+  background-position-x: calc(var(--bx, 0) * 1%);
+  will-change: transform, opacity;
+}
+
+.truck-button .truck .box:before,
+.truck-button .truck .box:after {
+  content: "";
+  position: absolute;
+}
+
+/* Box ribbon/line */
+.truck-button .truck .box:before {
+  background: rgba(255, 255, 255, 0.25);
+  left: 0;
+  right: 0;
+  top: 6px;
+  height: 1px;
+}
+
+/* Tailgate flap */
+.truck-button .truck .box:after {
+  width: 6px;
+  left: 100%;
+  top: 0;
+  bottom: 0;
+  background: var(--back);
+  transform: translateX(calc(var(--hx, 0) * 1px));
 }

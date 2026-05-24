@@ -815,6 +815,41 @@ app.get("/api/orders/:orderId/invoice", async (req, res) => {
   }
 });
 
+app.get("/api/pincode/:pincode", async (req, res) => {
+  const pin = req.params.pincode;
+  if (!/^\d{6}$/.test(pin)) {
+    return res.status(400).json({ ok: false, message: "Enter valid 6-digit pincode" });
+  }
+
+  // Backup active setting and temporarily disable strict TLS checks to fetch from expired cert
+  const originalRejectValue = process.env.NODE_TLS_REJECT_UNAUTHORIZED;
+  process.env.NODE_TLS_REJECT_UNAUTHORIZED = "0";
+
+  try {
+    const response = await fetch(`https://api.postalpincode.in/pincode/${pin}`);
+    
+    // Immediately restore setting
+    if (originalRejectValue === undefined) {
+      delete process.env.NODE_TLS_REJECT_UNAUTHORIZED;
+    } else {
+      process.env.NODE_TLS_REJECT_UNAUTHORIZED = originalRejectValue;
+    }
+
+    if (!response.ok) throw new Error("India Post API failed");
+    const data = await response.json();
+    return res.json({ ok: true, data });
+  } catch (error) {
+    // Restore on catch block too just in case
+    if (originalRejectValue === undefined) {
+      delete process.env.NODE_TLS_REJECT_UNAUTHORIZED;
+    } else {
+      process.env.NODE_TLS_REJECT_UNAUTHORIZED = originalRejectValue;
+    }
+    console.error("Pincode proxy error:", error);
+    return res.status(500).json({ ok: false, message: "Unable to retrieve postal details" });
+  }
+});
+
 if (fs.existsSync(path.join(distPath, "index.html"))) {
   app.use(express.static(distPath));
   app.get(/^\/(?!api|socket\.io).*/, (_req, res) => {
