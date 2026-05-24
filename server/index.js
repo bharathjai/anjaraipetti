@@ -11,6 +11,7 @@ import jwt from "jsonwebtoken";
 import mongoose from "mongoose";
 import Razorpay from "razorpay";
 import { generateInvoicePDF } from "./pdfGenerator.js";
+import nodemailer from "nodemailer";
 
 const app = express();
 app.use(cors());
@@ -199,9 +200,13 @@ async function sendInvoiceEmail(order) {
     process.env.GMAIL_OAUTH_REFRESH_TOKEN &&
     process.env.GMAIL_USER;
 
-  if (!oauthReady) {
+  const appPasswordReady =
+    process.env.GMAIL_USER &&
+    process.env.GMAIL_PASS;
+
+  if (!oauthReady && !appPasswordReady) {
     // eslint-disable-next-line no-console
-    console.log("Gmail OAuth2 env vars not set. Skipping email dispatch.");
+    console.log("Gmail SMTP or OAuth2 credentials not set in .env. Skipping email dispatch.");
     return;
   }
 
@@ -210,67 +215,92 @@ async function sendInvoiceEmail(order) {
     const toEmails = [order.customer.email, adminEmail].filter(Boolean);
     if (toEmails.length === 0) return;
 
-    const accessToken = await getGmailAccessToken();
+    if (oauthReady) {
+      console.log("Sending email using Gmail REST API (OAuth2)...");
+      const accessToken = await getGmailAccessToken();
 
-    // Build a MIME message manually and send via Gmail REST API (HTTPS port 443).
-    // This completely avoids nodemailer's SMTP transport which Render blocks.
-    const boundary = `boundary_${crypto.randomBytes(16).toString("hex")}`;
-    const pdfBase64 = pdfBuffer.toString("base64");
+      // Build a MIME message manually and send via Gmail REST API (HTTPS port 443).
+      // This completely avoids nodemailer's SMTP transport which Render blocks.
+      const boundary = `boundary_${crypto.randomBytes(16).toString("hex")}`;
+      const pdfBase64 = pdfBuffer.toString("base64");
 
-    const mimeLines = [
-      `From: "Anjaraipetti" <${process.env.GMAIL_USER}>`,
-      `To: ${toEmails.join(", ")}`,
-      `Subject: Invoice for your Anjaraipetti order: ${order.orderId}`,
-      "MIME-Version: 1.0",
-      `Content-Type: multipart/mixed; boundary="${boundary}"`,
-      "",
-      `--${boundary}`,
-      "Content-Type: text/plain; charset=UTF-8",
-      "",
-      `Hello ${order.customer.name},`,
-      "",
-      "Thank you for your purchase! Please find your invoice attached as a PDF.",
-      "",
-      `Order ID: ${order.orderId}`,
-      `Total: INR ${order.grandTotal}`,
-      "",
-      "Best regards,",
-      "Anjaraipetti",
-      "",
-      `--${boundary}`,
-      "Content-Type: application/pdf",
-      "Content-Transfer-Encoding: base64",
-      `Content-Disposition: attachment; filename="Invoice_${order.invoiceNumber}.pdf"`,
-      "",
-      pdfBase64,
-      "",
-      `--${boundary}--`
-    ];
+      const mimeLines = [
+        `From: "Anjaraipetti" <${process.env.GMAIL_USER}>`,
+        `To: ${toEmails.join(", ")}`,
+        `Subject: Invoice for your Anjaraipetti order: ${order.orderId}`,
+        "MIME-Version: 1.0",
+        `Content-Type: multipart/mixed; boundary="${boundary}"`,
+        "",
+        `--${boundary}`,
+        "Content-Type: text/plain; charset=UTF-8",
+        "",
+        `Hello ${order.customer.name},`,
+        "",
+        "Thank you for your purchase! Please find your invoice attached as a PDF.",
+        "",
+        `Order ID: ${order.orderId}`,
+        `Total: INR ${order.grandTotal}`,
+        "",
+        "Best regards,",
+        "Anjaraipetti",
+        "",
+        `--${boundary}`,
+        "Content-Type: application/pdf",
+        "Content-Transfer-Encoding: base64",
+        `Content-Disposition: attachment; filename="Invoice_${order.invoiceNumber}.pdf"`,
+        "",
+        pdfBase64,
+        "",
+        `--${boundary}--`
+      ];
 
-    const rawMime = mimeLines.join("\r\n");
-    // Gmail API requires base64url encoding (no +, /, or = padding)
-    const encodedMessage = Buffer.from(rawMime)
-      .toString("base64")
-      .replace(/\+/g, "-")
-      .replace(/\//g, "_")
-      .replace(/=+$/, "");
+      const rawMime = mimeLines.join("\r\n");
+      const encodedMessage = Buffer.from(rawMime)
+        .toString("base64")
+        .replace(/\+/g, "-")
+        .replace(/\//g, "_")
+        .replace(/=+$/, "");
 
-    const gmailRes = await fetch("https://gmail.googleapis.com/gmail/v1/users/me/messages/send", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${accessToken}`,
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify({ raw: encodedMessage })
-    });
+      const gmailRes = await fetch("https://gmail.googleapis.com/gmail/v1/users/me/messages/send", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({ raw: encodedMessage })
+      });
 
-    if (!gmailRes.ok) {
-      const errText = await gmailRes.text();
-      throw new Error(`Gmail API error: ${gmailRes.status} ${errText}`);
+      if (!gmailRes.ok) {
+        const errText = await gmailRes.text();
+        throw new Error(`Gmail API error: ${gmailRes.status} ${errText}`);
+      }
+
+      console.log(`Invoice email sent via Gmail REST API for order ${order.orderId}`);
+    } else {
+      console.log("Sending email using standard Nodemailer SMTP (App Password)...");
+      const transporter = nodemailer.createTransport({
+        service: "gmail",
+        auth: {
+          user: process.env.GMAIL_USER,
+          pass: process.env.GMAIL_PASS
+        }
+      });
+
+      await transporter.sendMail({
+        from: `"Anjaraipetti" <${process.env.GMAIL_USER}>`,
+        to: toEmails.join(", "),
+        subject: `Invoice for your Anjaraipetti order: ${order.orderId}`,
+        text: `Hello ${order.customer.name},\n\nThank you for your purchase! Please find your invoice attached as a PDF.\n\nOrder ID: ${order.orderId}\nTotal: INR ${order.grandTotal}\n\nBest regards,\nAnjaraipetti`,
+        attachments: [
+          {
+            filename: `Invoice_${order.invoiceNumber}.pdf`,
+            content: pdfBuffer
+          }
+        ]
+      });
+
+      console.log(`Invoice email sent via Nodemailer SMTP for order ${order.orderId}`);
     }
-
-    // eslint-disable-next-line no-console
-    console.log(`Invoice email sent for order ${order.orderId}`);
   } catch (err) {
     // eslint-disable-next-line no-console
     console.error("Failed to send invoice email:", err);
