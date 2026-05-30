@@ -215,11 +215,21 @@ async function getDeviceTokens() {
 let firebaseAdminInitialized = false;
 if (process.env.FIREBASE_PROJECT_ID && process.env.FIREBASE_CLIENT_EMAIL && process.env.FIREBASE_PRIVATE_KEY) {
   try {
+    let privateKey = process.env.FIREBASE_PRIVATE_KEY.trim();
+    // Strip surrounding quotes if present (common mistake when pasting in Render/Heroku dashboard)
+    if (privateKey.startsWith('"') && privateKey.endsWith('"')) {
+      privateKey = privateKey.slice(1, -1);
+    } else if (privateKey.startsWith("'") && privateKey.endsWith("'")) {
+      privateKey = privateKey.slice(1, -1);
+    }
+    // Replace literal backslash-n sequences with actual newlines
+    privateKey = privateKey.replace(/\\n/g, "\n");
+
     admin.initializeApp({
       credential: admin.credential.cert({
         projectId: process.env.FIREBASE_PROJECT_ID,
         clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
-        privateKey: process.env.FIREBASE_PRIVATE_KEY.replace(/\\n/g, "\n")
+        privateKey
       })
     });
     firebaseAdminInitialized = true;
