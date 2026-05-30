@@ -172,7 +172,10 @@ const adminDeviceTokenSchema = new mongoose.Schema(
   {
     token: { type: String, required: true, unique: true, index: true },
     adminEmail: { type: String, required: true, index: true },
-    createdAt: { type: Date, default: Date.now }
+    deviceName: { type: String, default: "Unknown Device" },
+    browser: { type: String, default: "Unknown Browser" },
+    createdAt: { type: Date, default: Date.now },
+    lastActiveAt: { type: Date, default: Date.now }
   },
   { versionKey: false }
 );
@@ -183,15 +186,29 @@ let deliveryChargeEnabled = true;
 
 const memoryDeviceTokens = new Map();
 
-async function registerDeviceToken(token, adminEmail) {
+async function registerDeviceToken(token, adminEmail, deviceName, browser) {
   if (isPersistenceEnabled()) {
     await AdminDeviceTokenModel.findOneAndUpdate(
       { token },
-      { token, adminEmail, createdAt: new Date() },
+      {
+        token,
+        adminEmail,
+        deviceName: deviceName || "Unknown Device",
+        browser: browser || "Unknown Browser",
+        lastActiveAt: new Date(),
+        $setOnInsert: { createdAt: new Date() }
+      },
       { upsert: true }
     );
   } else {
-    memoryDeviceTokens.set(token, adminEmail);
+    const existing = memoryDeviceTokens.get(token) || {};
+    memoryDeviceTokens.set(token, {
+      adminEmail,
+      deviceName: deviceName || "Unknown Device",
+      browser: browser || "Unknown Browser",
+      createdAt: existing.createdAt || new Date(),
+      lastActiveAt: new Date()
+    });
   }
 }
 
@@ -956,13 +973,13 @@ app.get("/api/firebase-config", (req, res) => {
 });
 
 app.post("/api/admin/notifications/subscribe", requireAdminAuth, async (req, res) => {
-  const { token } = req.body || {};
+  const { token, deviceName, browser } = req.body || {};
   if (!token) {
     return res.status(400).json({ ok: false, message: "Device registration token is required" });
   }
 
   try {
-    await registerDeviceToken(token, req.admin.email);
+    await registerDeviceToken(token, req.admin.email, deviceName, browser);
     return res.json({ ok: true, message: "Subscribed to push notifications successfully" });
   } catch (err) {
     console.error("Subscription failed:", err);
@@ -982,6 +999,36 @@ app.post("/api/admin/notifications/unsubscribe", requireAdminAuth, async (req, r
   } catch (err) {
     console.error("Unsubscription failed:", err);
     return res.status(500).json({ ok: false, message: "Failed to remove registration token" });
+  }
+});
+
+app.get("/api/admin/notifications/devices", requireAdminAuth, async (req, res) => {
+  try {
+    let devices = [];
+    if (isPersistenceEnabled()) {
+      devices = await AdminDeviceTokenModel.find({}).sort({ lastActiveAt: -1 }).lean();
+    } else {
+      devices = Array.from(memoryDeviceTokens.entries()).map(([token, info]) => ({
+        token,
+        adminEmail: info.adminEmail,
+        deviceName: info.deviceName,
+        browser: info.browser,
+        createdAt: info.createdAt,
+        lastActiveAt: info.lastActiveAt
+      })).sort((a, b) => new Date(b.lastActiveAt) - new Date(a.lastActiveAt));
+    }
+
+    // Console log the registered devices for server logs visibility
+    console.log("\n=== REGISTERED ADMIN DEVICES ===");
+    devices.forEach((d, idx) => {
+      console.log(`[${idx + 1}] Device: ${d.deviceName} | Browser: ${d.browser} | Created: ${d.createdAt} | Last Active: ${d.lastActiveAt}`);
+    });
+    console.log("=================================\n");
+
+    return res.json({ ok: true, devices });
+  } catch (err) {
+    console.error("Failed to list registered devices:", err);
+    return res.status(500).json({ ok: false, message: "Failed to list registered devices" });
   }
 });
 

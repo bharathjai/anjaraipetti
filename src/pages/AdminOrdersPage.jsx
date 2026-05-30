@@ -11,6 +11,47 @@ function formatINR(value) {
   return new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR", maximumFractionDigits: 2 }).format(value);
 }
 
+function getDeviceAndBrowserInfo() {
+  if (typeof navigator === "undefined") {
+    return { deviceName: "Server Environment", browser: "None" };
+  }
+  const ua = navigator.userAgent;
+  let browser = "Unknown Browser";
+  let deviceName = "Unknown Device";
+
+  if (ua.includes("Firefox/")) {
+    browser = "Firefox";
+  } else if (ua.includes("Edg/")) {
+    browser = "Edge";
+  } else if (ua.includes("Chrome/") && ua.includes("Safari/")) {
+    browser = "Chrome";
+  } else if (ua.includes("Safari/") && !ua.includes("Chrome/")) {
+    browser = "Safari";
+  } else if (ua.includes("MSIE ") || ua.includes("Trident/")) {
+    browser = "Internet Explorer";
+  } else if (ua.includes("CriOS/")) {
+    browser = "Chrome (iOS)";
+  } else if (ua.includes("FxiOS/")) {
+    browser = "Firefox (iOS)";
+  }
+
+  if (ua.includes("iPhone")) {
+    deviceName = "iPhone";
+  } else if (ua.includes("iPad")) {
+    deviceName = "iPad";
+  } else if (ua.includes("Android")) {
+    deviceName = "Android Device";
+  } else if (ua.includes("Windows NT")) {
+    deviceName = "Windows PC";
+  } else if (ua.includes("Macintosh")) {
+    deviceName = "Macintosh";
+  } else if (ua.includes("Linux")) {
+    deviceName = "Linux Desktop";
+  }
+
+  return { deviceName, browser };
+}
+
 export default function AdminOrdersPage() {
   const navigate = useNavigate();
   const [orders, setOrders] = useState([]);
@@ -24,6 +65,37 @@ export default function AdminOrdersPage() {
 
   const [subStatus, setSubStatus] = useState("loading"); // loading, subscribed, unsubscribed, permission_denied, unsupported
   const [swRegistration, setSwRegistration] = useState(null);
+
+  const [registeredDevices, setRegisteredDevices] = useState([]);
+  const [loadingDevices, setLoadingDevices] = useState(false);
+
+  const fetchRegisteredDevices = async () => {
+    if (!adminToken) return;
+    setLoadingDevices(true);
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/admin/notifications/devices`, {
+        headers: {
+          Authorization: `Bearer ${adminToken}`
+        }
+      });
+      if (response.ok) {
+        const payload = await response.json();
+        if (payload.ok && Array.isArray(payload.devices)) {
+          setRegisteredDevices(payload.devices);
+        }
+      }
+    } catch (err) {
+      console.error("Failed to load registered devices:", err);
+    } finally {
+      setLoadingDevices(false);
+    }
+  };
+
+  useEffect(() => {
+    if (adminToken) {
+      fetchRegisteredDevices();
+    }
+  }, [adminToken]);
 
   useEffect(() => {
     let active = true;
@@ -96,13 +168,15 @@ export default function AdminOrdersPage() {
         throw new Error("Could not retrieve Firebase device token.");
       }
 
+      const { deviceName, browser } = getDeviceAndBrowserInfo();
+
       const response = await fetch(`${API_BASE_URL}/api/admin/notifications/subscribe`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${adminToken}`
         },
-        body: JSON.stringify({ token })
+        body: JSON.stringify({ token, deviceName, browser })
       });
 
       const payload = await response.json();
@@ -118,6 +192,7 @@ export default function AdminOrdersPage() {
       localStorage.setItem("anj_admin_subscribed", "true");
       localStorage.setItem("anj_admin_fcm_token", token);
       setSubStatus("subscribed");
+      fetchRegisteredDevices();
     } catch (err) {
       console.error("Failed to subscribe:", err);
       alert(err.message || "An error occurred while enabling notifications.");
@@ -145,6 +220,7 @@ export default function AdminOrdersPage() {
       localStorage.removeItem("anj_admin_subscribed");
       localStorage.removeItem("anj_admin_fcm_token");
       setSubStatus("unsubscribed");
+      fetchRegisteredDevices();
     }
   };
 
@@ -537,6 +613,71 @@ export default function AdminOrdersPage() {
             )}
           </div>
         </div>
+        
+        {registeredDevices.length > 0 && (
+          <div className="mt-8 border-t border-truffle/10 pt-6">
+            <h3 className="text-xs font-semibold uppercase tracking-[0.2em] text-cocoa/80 mb-4">
+              Registered Admin Devices ({registeredDevices.length})
+            </h3>
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-xs border-collapse">
+                <thead>
+                  <tr className="border-b border-truffle/15 text-truffle/60">
+                    <th className="py-2.5 font-bold uppercase tracking-wider">Device Name</th>
+                    <th className="py-2.5 font-bold uppercase tracking-wider">Browser</th>
+                    <th className="py-2.5 font-bold uppercase tracking-wider">Created Date</th>
+                    <th className="py-2.5 font-bold uppercase tracking-wider">Last Active</th>
+                    <th className="py-2.5 font-bold uppercase tracking-wider text-right">Status</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-truffle/10 text-espresso font-medium">
+                  {registeredDevices.map((device) => {
+                    const isThisDevice = localStorage.getItem("anj_admin_fcm_token") === device.token;
+                    return (
+                      <tr key={device.token} className={isThisDevice ? "bg-cocoa/5 font-semibold" : ""}>
+                        <td className="py-3 pr-2">
+                          <span className="flex items-center gap-1.5">
+                            {device.deviceName}
+                            {isThisDevice && (
+                              <span className="rounded bg-cocoa/10 px-1.5 py-0.5 text-[9px] uppercase tracking-wider text-cocoa">
+                                This Device
+                              </span>
+                            )}
+                          </span>
+                        </td>
+                        <td className="py-3 pr-2">{device.browser}</td>
+                        <td className="py-3 pr-2 text-truffle/70">
+                          {new Date(device.createdAt).toLocaleDateString("en-IN", {
+                            year: "numeric",
+                            month: "short",
+                            day: "numeric",
+                            hour: "2-digit",
+                            minute: "2-digit"
+                          })}
+                        </td>
+                        <td className="py-3 pr-2 text-truffle/70">
+                          {new Date(device.lastActiveAt).toLocaleDateString("en-IN", {
+                            year: "numeric",
+                            month: "short",
+                            day: "numeric",
+                            hour: "2-digit",
+                            minute: "2-digit"
+                          })}
+                        </td>
+                        <td className="py-3 text-right">
+                          <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2.5 py-0.5 text-[10px] font-semibold text-emerald-800">
+                            <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+                            Active
+                          </span>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
       </motion.div>
 
       {/* Delivery Charge Toggle Card */}
