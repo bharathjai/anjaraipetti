@@ -155,6 +155,16 @@ const appStateSchema = new mongoose.Schema(
 
 const OrderModel = mongoose.models.Order || mongoose.model("Order", orderSchema);
 const AppStateModel = mongoose.models.AppState || mongoose.model("AppState", appStateSchema);
+
+const productPriceSchema = new mongoose.Schema(
+  {
+    productId: { type: String, required: true, unique: true, index: true },
+    price: { type: Number, required: true }
+  },
+  { versionKey: false }
+);
+
+const ProductPriceModel = mongoose.models.ProductPrice || mongoose.model("ProductPrice", productPriceSchema);
 const razorpayKeyId = process.env.RAZORPAY_KEY_ID || "";
 const razorpayKeySecret = process.env.RAZORPAY_KEY_SECRET || "";
 const razorpayClient =
@@ -476,6 +486,23 @@ function requireAdminAuth(req, res, next) {
   }
 }
 
+async function initializeCustomPrices() {
+  if (!isPersistenceEnabled()) return;
+  try {
+    const customPrices = await ProductPriceModel.find({}).lean();
+    customPrices.forEach((cp) => {
+      if (PRODUCTS[cp.productId]) {
+        PRODUCTS[cp.productId].price = cp.price;
+      }
+    });
+    // eslint-disable-next-line no-console
+    console.log("Custom product prices initialized from MongoDB");
+  } catch (error) {
+    // eslint-disable-next-line no-console
+    console.error("Failed to initialize custom prices:", error);
+  }
+}
+
 async function initializeMongo() {
   if (!mongoUri) {
     // eslint-disable-next-line no-console
@@ -528,6 +555,8 @@ async function initializeMongo() {
 
       memoryInvoiceSequence = Math.max(0, Number(state.invoiceSequence) || 0);
     }
+
+    await initializeCustomPrices();
 
     // eslint-disable-next-line no-console
     console.log("MongoDB connected");
@@ -769,6 +798,44 @@ app.post("/api/admin/login", (req, res) => {
     token,
     admin: { email: adminEmail, role: "admin" }
   });
+});
+
+app.get("/api/products/prices", (req, res) => {
+  const prices = {};
+  Object.keys(PRODUCTS).forEach((id) => {
+    prices[id] = PRODUCTS[id].price;
+  });
+  return res.json({ ok: true, prices });
+});
+
+app.post("/api/admin/products/prices", requireAdminAuth, async (req, res) => {
+  const { productId, price } = req.body || {};
+  if (!productId || PRODUCTS[productId] === undefined) {
+    return res.status(400).json({ ok: false, message: "Invalid product ID" });
+  }
+  const parsedPrice = Number(price);
+  if (Number.isNaN(parsedPrice) || parsedPrice < 0) {
+    return res.status(400).json({ ok: false, message: "Price must be a valid positive number" });
+  }
+
+  try {
+    PRODUCTS[productId].price = parsedPrice;
+    if (isPersistenceEnabled()) {
+      await ProductPriceModel.findOneAndUpdate(
+        { productId },
+        { price: parsedPrice },
+        { upsert: true }
+      );
+    }
+    
+    // Broadcast price change in real-time
+    io.emit("products:prices", { productId, price: parsedPrice });
+
+    return res.json({ ok: true, message: "Price updated successfully", productId, price: parsedPrice });
+  } catch (error) {
+    console.error("Failed to update price:", error);
+    return res.status(500).json({ ok: false, message: "Server error updating price" });
+  }
 });
 
 app.post("/api/orders", async (req, res) => {

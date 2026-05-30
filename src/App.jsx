@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { io } from "socket.io-client";
 import NavBar from "./components/NavBar";
 import Footer from "./components/Footer";
-import { SOCKET_URL } from "./config/runtime";
+import { SOCKET_URL, API_BASE_URL } from "./config/runtime";
 import { products, getProductById } from "./data/products";
 import AdminLoginPage from "./pages/AdminLoginPage";
 import AdminOrdersPage from "./pages/AdminOrdersPage";
@@ -74,6 +74,7 @@ export default function App() {
     }
     return {};
   });
+  const [dynamicProducts, setDynamicProducts] = useState(products);
   const [inventoryMap, setInventoryMap] = useState({});
   const socketRef = useRef(null);
   const defaultProductId = products[0].id;
@@ -88,6 +89,60 @@ export default function App() {
       const inventory = payload?.inventory || payload?.inventoryByProduct || {};
       setInventoryMap(inventory);
     });
+
+    // Listen to real-time price updates over WebSocket
+    socket.on("products:prices", ({ productId, price }) => {
+      setDynamicProducts((prevProducts) => {
+        return prevProducts.map((p) => {
+          const updatedVariants = p.variants?.map((v) => {
+            if (v.id === productId) {
+              return { ...v, price };
+            }
+            return v;
+          }) || [];
+          
+          const basePrice = updatedVariants[0]?.price || p.price;
+          return {
+            ...p,
+            price: basePrice,
+            variants: updatedVariants
+          };
+        });
+      });
+    });
+
+    // Fetch initial customized prices from database
+    const fetchCustomPrices = async () => {
+      try {
+        const response = await fetch(`${API_BASE_URL}/api/products/prices`);
+        if (response.ok) {
+          const payload = await response.json();
+          if (payload.ok && payload.prices) {
+            setDynamicProducts((prevProducts) => {
+              return prevProducts.map((p) => {
+                const updatedVariants = p.variants?.map((v) => {
+                  if (payload.prices[v.id] !== undefined) {
+                    return { ...v, price: payload.prices[v.id] };
+                  }
+                  return v;
+                }) || [];
+                
+                const basePrice = updatedVariants[0]?.price || p.price;
+                return {
+                  ...p,
+                  price: basePrice,
+                  variants: updatedVariants
+                };
+              });
+            });
+          }
+        }
+      } catch (err) {
+        console.error("Failed to fetch product prices:", err);
+      }
+    };
+
+    fetchCustomPrices();
 
     return () => {
       socket.disconnect();
@@ -133,11 +188,37 @@ export default function App() {
 
   const clearCart = () => setCart({});
 
+  const getDynamicProductById = (productId) => {
+    if (!dynamicProducts || dynamicProducts.length === 0) {
+      return null;
+    }
+    for (const product of dynamicProducts) {
+      if (product.id === productId) {
+        return {
+          ...product,
+          price: product.variants?.[0]?.price || product.price || 0,
+          size: product.variants?.[0]?.size || product.size || ""
+        };
+      }
+      const variant = product.variants?.find(v => v.id === productId);
+      if (variant) {
+        return {
+          ...product,
+          id: variant.id,
+          price: variant.price,
+          size: variant.size,
+          name: `${product.name} (${variant.size})`
+        };
+      }
+    }
+    return null;
+  };
+
   const cartItems = useMemo(() => {
     return Object.entries(cart)
-      .map(([id, qty]) => ({ product: getProductById(id), quantity: qty }))
+      .map(([id, qty]) => ({ product: getDynamicProductById(id), quantity: qty }))
       .filter((item) => item.product != null);
-  }, [cart]);
+  }, [cart, dynamicProducts]);
 
   const cartQuantity = cartItems.reduce((sum, item) => sum + item.quantity, 0);
 
@@ -146,13 +227,13 @@ export default function App() {
       <AmbientSpices />
       <NavBar cartQuantity={cartQuantity} />
       <Routes>
-        <Route path="/" element={<LandingPage products={products} />} />
-        <Route path="/product" element={<ProductsPage products={products} />} />
+        <Route path="/" element={<LandingPage products={dynamicProducts} />} />
+        <Route path="/product" element={<ProductsPage products={dynamicProducts} />} />
         <Route
           path="/product/:productId"
           element={
             <ProductPage
-              products={products}
+              products={dynamicProducts}
               ingredients={ingredients}
               onAddToCart={addToCart}
               availableMap={inventoryMap}

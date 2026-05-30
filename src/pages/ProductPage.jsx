@@ -2,7 +2,6 @@ import { motion, useMotionValue, useSpring, AnimatePresence } from "framer-motio
 import { useEffect, useMemo, useState } from "react";
 import { Link, useParams, useNavigate } from "react-router-dom";
 import AddToCartButton from "../components/AddToCartButton";
-import { getProductById } from "../data/products";
 
 export default function ProductPage({
   products = [],
@@ -12,7 +11,9 @@ export default function ProductPage({
 }) {
   const navigate = useNavigate();
   const { productId } = useParams();
-  const product = useMemo(() => getProductById(productId), [productId]);
+  const product = useMemo(() => {
+    return products.find((p) => p.id === productId) || null;
+  }, [products, productId]);
 
   const [selectedVariantId, setSelectedVariantId] = useState(
     product?.variants?.[0]?.id || product?.id || ""
