@@ -72,7 +72,9 @@ export default function CartPage({ cartItems, cartQuantity, onUpdateQuantity }) 
   }
 
   const subtotal = cartItems.reduce((sum, item) => sum + item.product.price * item.quantity, 0);
-  const total = subtotal;
+  const hasTestProduct = cartItems.some(item => item.product.id === "test-product");
+  const deliveryFee = hasTestProduct ? 0 : (subtotal >= 299 ? 0 : 50);
+  const total = subtotal + deliveryFee;
 
   return (
     <section className="relative isolate mx-auto w-full max-w-6xl overflow-hidden px-6 pb-20 pt-12 md:px-10 md:pt-16">
@@ -127,24 +129,47 @@ export default function CartPage({ cartItems, cartQuantity, onUpdateQuantity }) 
           initial={{ opacity: 0, y: 24 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.16 }}
-          className="rounded-3xl border border-truffle/10 bg-white/75 p-6 shadow-luxe backdrop-blur-xl"
+          className="rounded-3xl border border-truffle/10 bg-white/75 p-6 shadow-luxe backdrop-blur-xl h-fit"
         >
           <p className="text-xs uppercase tracking-[0.3em] text-cocoa/70">Order Summary</p>
-          <div className="mt-5 space-y-3 text-truffle/85">
+          <div className="mt-5 space-y-3.5 text-truffle/85 text-sm">
             <div className="flex items-center justify-between">
               <span>Subtotal</span>
-              <span>{formatINR(subtotal)}</span>
+              <span className="font-semibold text-espresso">{formatINR(subtotal)}</span>
             </div>
-          <div className="mt-3 border-t border-truffle/10 pt-3 text-lg font-semibold">
+            <div className="flex items-center justify-between">
+              <span>Delivery Fee</span>
+              <span className="font-semibold text-espresso">
+                {deliveryFee === 0 ? (
+                  <span className="text-emerald-600 font-bold">FREE</span>
+                ) : (
+                  formatINR(deliveryFee)
+                )}
+              </span>
+            </div>
+            
+            {/* Free Delivery Promo Bar */}
+            {!hasTestProduct && subtotal < 299 && (
+              <div className="rounded-xl bg-amber/5 p-3 text-[11px] leading-relaxed text-cocoa border border-amber/15">
+                Add <span className="font-bold">{formatINR(299 - subtotal)}</span> more to qualify for <span className="font-bold text-emerald-600">FREE Delivery</span>!
+              </div>
+            )}
+            
+            <div className="border-t border-truffle/10 pt-3 text-lg font-semibold">
               <div className="flex items-center justify-between">
                 <span>Grand Total</span>
-                <span>{formatINR(total)}</span>
+                <span className="text-cocoa font-bold">{formatINR(total)}</span>
               </div>
             </div>
           </div>
+          
+          <div className="mt-5 rounded-2xl bg-porcelain p-4 text-[11px] leading-relaxed text-truffle/70 border border-truffle/10">
+            📌 <strong>Delivery Policy:</strong> Free delivery on orders above ₹299. Orders below ₹299 incur a flat ₹50 shipping fee.
+          </div>
+
           <Link
             to="/checkout"
-            className="btn-hover mt-7 inline-flex w-full justify-center rounded-full bg-truffle px-6 py-3 text-sm font-semibold uppercase tracking-[0.2em] text-porcelain transition hover:bg-espresso"
+            className="btn-hover mt-6 inline-flex w-full justify-center rounded-full bg-truffle px-6 py-3 text-sm font-semibold uppercase tracking-[0.2em] text-porcelain transition hover:bg-espresso"
           >
             Proceed To Checkout
           </Link>

@@ -5,23 +5,30 @@ import AddToCartButton from "../components/AddToCartButton";
 import { getProductById } from "../data/products";
 
 export default function ProductPage({
-  products,
-  ingredients,
+  products = [],
+  ingredients = [],
   onAddToCart,
-  availableMap,
-  cartProductId
+  availableMap = {}
 }) {
   const navigate = useNavigate();
   const { productId } = useParams();
   const product = useMemo(() => getProductById(productId), [productId]);
-  const [selectedVariantId, setSelectedVariantId] = useState(product.variants?.[0]?.id || product.id);
+
+  const [selectedVariantId, setSelectedVariantId] = useState(
+    product?.variants?.[0]?.id || product?.id || ""
+  );
 
   // Reset selected variant whenever the product changes (swipe navigation)
   useEffect(() => {
-    setSelectedVariantId(product.variants?.[0]?.id || product.id);
-  }, [product.id]);
+    if (product) {
+      setSelectedVariantId(product.variants?.[0]?.id || product.id || "");
+    }
+  }, [product?.id]);
 
-  const selectedVariant = product.variants?.find(v => v.id === selectedVariantId) || product.variants?.[0] || product;
+  const selectedVariant = useMemo(() => {
+    if (!product) return null;
+    return product.variants?.find(v => v.id === selectedVariantId) || product.variants?.[0] || product;
+  }, [product, selectedVariantId]);
 
   const [direction, setDirection] = useState(0);
   const rotateX = useMotionValue(0);
@@ -29,11 +36,29 @@ export default function ProductPage({
   const tiltX = useSpring(rotateX, { stiffness: 180, damping: 22, mass: 0.8 });
   const tiltY = useSpring(rotateY, { stiffness: 180, damping: 22, mass: 0.8 });
   const [quantity, setQuantity] = useState(1);
+
+  if (!product || !selectedVariant) {
+    return (
+      <section className="mx-auto w-full max-w-7xl px-6 pb-20 pt-12 md:px-10 md:pt-20 text-center">
+        <h2 className="font-display text-3xl text-espresso">Product Not Found</h2>
+        <p className="mt-4 text-truffle/80">We couldn't find the requested spice blend.</p>
+        <Link
+          to="/product"
+          className="mt-6 inline-flex items-center justify-center rounded-full bg-truffle px-6 py-2.5 text-xs font-semibold uppercase tracking-wider text-porcelain transition hover:bg-espresso shadow-sm cursor-pointer"
+        >
+          Back to Products
+        </Link>
+      </section>
+    );
+  }
+
   const available = Number(availableMap?.[selectedVariant.id] ?? 9999);
 
   const swipeToProduct = (newDirection) => {
+    if (!products || products.length === 0) return;
     setDirection(newDirection);
     const currentIndex = products.findIndex((p) => p.id === product.id);
+    if (currentIndex === -1) return;
     let nextIndex = currentIndex + newDirection;
     if (nextIndex < 0) nextIndex = products.length - 1;
     if (nextIndex >= products.length) nextIndex = 0;
@@ -134,18 +159,7 @@ export default function ProductPage({
             </div>
           )}
 
-          <div className="mt-4 grid gap-3 sm:grid-cols-2">
-            <div className="rounded-xl border border-truffle/10 bg-white/80 p-3">
-              <p className="text-[0.65rem] uppercase tracking-[0.24em] text-cocoa/60">Heat</p>
-              <p className="mt-1 text-sm font-semibold text-truffle">{product.heatLevel}</p>
-            </div>
-            <div className="rounded-xl border border-truffle/10 bg-white/80 p-3">
-              <p className="text-[0.65rem] uppercase tracking-[0.24em] text-cocoa/60">Origin</p>
-              <p className="mt-1 text-sm font-semibold text-truffle">{product.origin}</p>
-            </div>
-          </div>
-
-          <div className="mt-7 flex items-end justify-between gap-5">
+          <div className="mt-7 flex items-end justify-between gap-5 border-t border-truffle/10 pt-6">
             <div>
               <p className="text-xs uppercase tracking-[0.2em] text-cocoa/60">Price</p>
               <p className="mt-1 font-display text-5xl text-cocoa">INR {selectedVariant.price}</p>
@@ -162,8 +176,7 @@ export default function ProductPage({
               <button
                 type="button"
                 onClick={increaseQuantity}
-                disabled={quantity >= Math.max(1, available)}
-                className="h-9 w-9 rounded-full bg-almond text-xl text-truffle transition hover:bg-biscuit disabled:cursor-not-allowed disabled:opacity-50"
+                className="h-9 w-9 rounded-full bg-almond text-xl text-truffle transition hover:bg-biscuit"
               >
                 +
               </button>
@@ -176,31 +189,31 @@ export default function ProductPage({
         </motion.div>
       </div>
 
-      <section className="mt-20">
-        <motion.div
-          initial={{ opacity: 0, y: 22 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true, amount: 0.4 }}
-          transition={{ duration: 0.5 }}
-        >
-          <p className="text-xs uppercase tracking-[0.32em] text-cocoa/70">Ingredients</p>
-          <h2 className="mt-2 font-display text-4xl text-espresso">Layered composition</h2>
-        </motion.div>
-        <div className="mt-6 grid gap-4 md:grid-cols-2">
-          {ingredients.map((ingredient, idx) => (
-            <motion.article
-              key={ingredient.title}
-              initial={{ opacity: 0, y: 24 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true, amount: 0.5 }}
-              transition={{ duration: 0.45, delay: idx * 0.08 }}
-              className="rounded-2xl border border-truffle/10 bg-white/70 p-6"
+      {/* Simplified generic Sourcing details & Recipe Link */}
+      <section className="mt-16 rounded-[2rem] border border-truffle/10 bg-white/70 p-8 shadow-luxe backdrop-blur-xl">
+        <p className="text-xs uppercase tracking-[0.32em] text-cocoa/70">Ingredients & Sourcing</p>
+        <h2 className="mt-2 font-display text-3xl text-espresso">Selected Premium Spices</h2>
+        <p className="mt-4 leading-relaxed text-sm text-truffle/80">
+          Our blends are handcrafted using only the finest ingredients sourced directly from traditional farms. 
+          We carefully hand-pick premium sun-dried red chilies, aromatic coriander seeds, sharp black peppercorns, cloves, 
+          shahi jeera, and traditional spices. Everything is slow-roasted in small batches to preserve natural oils and 
+          aroma, with zero preservatives or artificial colorings added.
+        </p>
+
+        {product.id !== "test-product" && (
+          <div className="mt-6 border-t border-truffle/10 pt-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div>
+              <h4 className="font-semibold text-espresso">Ready to cook?</h4>
+              <p className="text-xs text-truffle/70 mt-0.5">Explore our traditional chef-recommended recipe for this blend.</p>
+            </div>
+            <Link
+              to={`/recipe/${product.id}`}
+              className="inline-flex items-center justify-center rounded-full bg-truffle px-6 py-3 text-xs font-semibold uppercase tracking-wider text-porcelain transition hover:bg-espresso shadow-sm"
             >
-              <h3 className="font-display text-2xl text-truffle">{ingredient.title}</h3>
-              <p className="mt-2 text-truffle/80">{ingredient.note}</p>
-            </motion.article>
-          ))}
-        </div>
+              📖 View Cooking Recipe
+            </Link>
+          </div>
+        )}
       </section>
     </section>
   );

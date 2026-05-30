@@ -71,7 +71,8 @@ const PRODUCTS = {
   "coriander-powder-100g": { id: "coriander-powder-100g", name: "Anjaraipetti Coriander Powder (100g Pack)", price: 89, stock: 150 },
   "coriander-powder-250g": { id: "coriander-powder-250g", name: "Anjaraipetti Coriander Powder (250g Pack)", price: 215, stock: 150 },
 
-  "combo-box": { id: "combo-box", name: "Anjaraipetti Complete Kitchen Spice Combo Box", price: 299, stock: 150 }
+  "combo-box": { id: "combo-box", name: "Anjaraipetti Complete Kitchen Spice Combo Box", price: 299, stock: 150 },
+  "test-product": { id: "test-product", name: "Anjaraipetti Test Product", price: 1, stock: 9999 }
 };
 
 const memoryOrders = new Map();
@@ -217,13 +218,117 @@ async function sendInvoiceEmail(order) {
 
     let emailSent = false;
 
+    // Calculate estimated dispatch date (2 days from order)
+    const orderDate = new Date(order.createdAt || Date.now());
+    const dispatchDate = new Date(orderDate);
+    dispatchDate.setDate(orderDate.getDate() + 2);
+    const formattedDispatchDate = dispatchDate.toLocaleDateString("en-IN", {
+      year: "numeric",
+      month: "long",
+      day: "numeric"
+    });
+
+    const deliveryFee = Number(order.grandTotal || 0) - Number(order.subtotal || 0);
+
+    // 1. Text Fallback body
+    const textBody = `Hello ${order.customer.name},\n\n` +
+      `Thank you for your purchase! We are preparing your fresh, slow-roasted masala blend with care.\n\n` +
+      `Order Summary:\n` +
+      `- Order ID: ${order.orderId}\n` +
+      `- Invoice Number: ${order.invoiceNumber}\n` +
+      `- Estimated Dispatch Date: ${formattedDispatchDate} (2 days from order)\n` +
+      `- Subtotal: Rs. ${Number(order.subtotal).toFixed(2)}\n` +
+      `- Delivery Fee: ${deliveryFee === 0 ? "FREE" : "Rs. " + deliveryFee.toFixed(2)}\n` +
+      `- Grand Total: Rs. ${Number(order.grandTotal).toFixed(2)}\n\n` +
+      (order.payment.razorpayPaymentId ? `- Transaction ID: ${order.payment.razorpayPaymentId}\n\n` : "") +
+      `Your complete official invoice has been attached to this email as a PDF.\n\n` +
+      `Best regards,\n` +
+      `Anjaraipetti`;
+
+    // 2. High-fidelity HTML body
+    const htmlBody = `
+<div style="background-color: #fcfaf6; padding: 30px; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; color: #2a1a12;">
+  <div style="max-width: 600px; margin: 0 auto; background-color: #ffffff; border-radius: 16px; border: 1px solid #ebdcc8; overflow: hidden; box-shadow: 0 4px 12px rgba(68,35,13,0.06);">
+    <!-- Header -->
+    <div style="background-color: #2a1a12; padding: 24px; text-align: center;">
+      <h1 style="margin: 0; color: #f4eee4; font-family: Georgia, serif; font-size: 28px; letter-spacing: 1px;">Anjaraipetti</h1>
+      <p style="margin: 4px 0 0 0; color: #d0843e; font-size: 11px; text-transform: uppercase; letter-spacing: 2px;">Namma Veetu Premium Spices</p>
+    </div>
+    
+    <!-- Body -->
+    <div style="padding: 30px;">
+      <h2 style="margin: 0 0 16px 0; font-size: 20px; color: #6f3f1e;">Thank you for your order, ${order.customer.name}!</h2>
+      <p style="margin: 0 0 20px 0; font-size: 14px; line-height: 1.6; color: #4b2c1a;">
+        Your support keeps tradition alive! We are preparing your fresh, slow-roasted masala blend with care. Below are your order details.
+      </p>
+      
+      <!-- Order details box -->
+      <div style="background-color: #fcfaf6; border-radius: 12px; border: 1px solid #ebdcc8; padding: 20px; margin-bottom: 24px;">
+        <table style="width: 100%; border-collapse: collapse; font-size: 13px;">
+          <tr>
+            <td style="padding: 4px 0; color: #6f3f1e; font-weight: bold; width: 45%;">Order ID:</td>
+            <td style="padding: 4px 0; font-weight: bold; color: #2a1a12;">${order.orderId}</td>
+          </tr>
+          <tr>
+            <td style="padding: 4px 0; color: #6f3f1e; font-weight: bold;">Invoice Number:</td>
+            <td style="padding: 4px 0; color: #2a1a12;">${order.invoiceNumber}</td>
+          </tr>
+          <tr>
+            <td style="padding: 4px 0; color: #6f3f1e; font-weight: bold;">Estimated Dispatch:</td>
+            <td style="padding: 4px 0; color: #2e7d32; font-weight: bold;">${formattedDispatchDate} (2 days from order)</td>
+          </tr>
+          ${order.payment.razorpayPaymentId ? `
+          <tr>
+            <td style="padding: 4px 0; color: #6f3f1e; font-weight: bold;">Transaction ID:</td>
+            <td style="padding: 4px 0; font-family: monospace; color: #2a1a12;">${order.payment.razorpayPaymentId}</td>
+          </tr>` : ''}
+        </table>
+      </div>
+
+      <!-- Items breakdown -->
+      <h3 style="margin: 0 0 10px 0; font-size: 15px; text-transform: uppercase; letter-spacing: 0.5px; color: #6f3f1e; border-bottom: 1px solid #ebdcc8; padding-bottom: 6px;">Order Summary</h3>
+      <table style="width: 100%; border-collapse: collapse; font-size: 13px; margin-bottom: 24px;">
+        ${order.items.map(item => `
+        <tr style="border-bottom: 1px solid #f4eee4;">
+          <td style="padding: 10px 0; color: #2a1a12; font-weight: bold;">${item.productName} <span style="font-weight: normal; color: #4b2c1a;">(x${item.quantity})</span></td>
+          <td style="padding: 10px 0; text-align: right; color: #2a1a12; font-weight: bold;">Rs. ${Number(item.subtotal).toFixed(2)}</td>
+        </tr>
+        `).join('')}
+        <tr>
+          <td style="padding: 8px 0 4px 0; color: #4b2c1a;">Subtotal</td>
+          <td style="padding: 8px 0 4px 0; text-align: right; color: #2a1a12;">Rs. ${Number(order.subtotal).toFixed(2)}</td>
+        </tr>
+        <tr>
+          <td style="padding: 4px 0; color: #4b2c1a;">Delivery Fee</td>
+          <td style="padding: 4px 0; text-align: right; color: #2a1a12;">
+            ${deliveryFee === 0 ? '<span style="color: #2e7d32; font-weight: bold;">FREE</span>' : `Rs. ${Number(deliveryFee).toFixed(2)}`}
+          </td>
+        </tr>
+        <tr style="border-top: 1px dashed #ebdcc8;">
+          <td style="padding: 12px 0 0 0; font-size: 16px; font-weight: bold; color: #6f3f1e;">Grand Total</td>
+          <td style="padding: 12px 0 0 0; text-align: right; font-size: 18px; font-weight: bold; color: #6f3f1e;">Rs. ${Number(order.grandTotal).toFixed(2)}</td>
+        </tr>
+      </table>
+
+      <p style="margin: 0; font-size: 13px; line-height: 1.5; color: #4b2c1a; text-align: center;">
+        Your complete official invoice has been generated and attached to this email as a PDF.
+      </p>
+    </div>
+
+    <!-- Footer -->
+    <div style="background-color: #f5f1eb; padding: 20px; text-align: center; border-top: 1px solid #ebdcc8; font-size: 12px; color: #4b2c1a;">
+      <p style="margin: 0 0 6px 0; font-style: italic; font-weight: bold; font-family: Georgia, serif;">"Thank you for choosing authenticity."</p>
+      <p style="margin: 0; font-size: 10px; text-transform: uppercase; letter-spacing: 1px; color: #6f3f1e;">Anjaraipetti | Perungalthur, Chennai, Tamilnadu</p>
+    </div>
+  </div>
+</div>
+`;
+
     if (oauthReady) {
       console.log("Sending email using Gmail REST API (OAuth2)...");
       try {
         const accessToken = await getGmailAccessToken();
 
-        // Build a MIME message manually and send via Gmail REST API (HTTPS port 443).
-        // This completely avoids nodemailer's SMTP transport which Render blocks.
         const boundary = `boundary_${crypto.randomBytes(16).toString("hex")}`;
         const pdfBase64 = pdfBuffer.toString("base64");
 
@@ -235,17 +340,9 @@ async function sendInvoiceEmail(order) {
           `Content-Type: multipart/mixed; boundary="${boundary}"`,
           "",
           `--${boundary}`,
-          "Content-Type: text/plain; charset=UTF-8",
+          "Content-Type: text/html; charset=UTF-8",
           "",
-          `Hello ${order.customer.name},`,
-          "",
-          "Thank you for your purchase! Please find your invoice attached as a PDF.",
-          "",
-          `Order ID: ${order.orderId}`,
-          `Total: INR ${order.grandTotal}`,
-          "",
-          "Best regards,",
-          "Anjaraipetti",
+          htmlBody,
           "",
           `--${boundary}`,
           "Content-Type: application/pdf",
@@ -304,7 +401,8 @@ async function sendInvoiceEmail(order) {
         from: `"Anjaraipetti" <${process.env.GMAIL_USER}>`,
         to: toEmails.join(", "),
         subject: `Invoice for your Anjaraipetti order: ${order.orderId}`,
-        text: `Hello ${order.customer.name},\n\nThank you for your purchase! Please find your invoice attached as a PDF.\n\nOrder ID: ${order.orderId}\nTotal: INR ${order.grandTotal}\n\nBest regards,\nAnjaraipetti`,
+        text: textBody,
+        html: htmlBody,
         attachments: [
           {
             filename: `Invoice_${order.invoiceNumber}.pdf`,
@@ -599,7 +697,9 @@ async function createFinalOrder({ items, customer, address, payment }) {
 
   const invoiceNumber = await nextInvoiceNumber();
   const subtotal = processedItems.reduce((sum, item) => sum + item.subtotal, 0);
-  const grandTotal = subtotal;
+  const hasTestProduct = processedItems.some(item => item.productId === "test-product" || item.productId.startsWith("test-product"));
+  const deliveryFee = hasTestProduct ? 0 : (subtotal >= 299 ? 0 : 50);
+  const grandTotal = subtotal + deliveryFee;
   const total = grandTotal;
   const orderId = `ANJ${Date.now().toString().slice(-8)}`;
 

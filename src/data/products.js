@@ -8,6 +8,7 @@ export const products = [
     description: "The heart of every homemade sambar is the right blend of spices. No preservatives. Handmade with care.",
     heatLevel: "Medium",
     origin: "Tamil Nadu",
+    category: "veg",
     image: "/images/sambar-masala.jpg",
     variants: [
       { id: "sambar-masala-50g", size: "50g Pack", price: 65 },
@@ -24,6 +25,7 @@ export const products = [
     description: "Great Biryani starts with the right blend of spices. No preservatives. Handmade with care.",
     heatLevel: "Medium Hot",
     origin: "Tamil Nadu",
+    category: "non-veg",
     image: "/images/biryani-masala.jpg",
     variants: [
       { id: "biryani-masala-50g", size: "50g Pack", price: 75 },
@@ -40,6 +42,7 @@ export const products = [
     description: "Pure. Pungent. Perfect. Our pepper powder adds the right amount of heat and aroma to every dish. No preservatives.",
     heatLevel: "Hot",
     origin: "Tamil Nadu",
+    category: "veg",
     image: "/images/pepper-powder.jpg",
     variants: [
       { id: "pepper-powder-50g", size: "50g Pack", price: 99 },
@@ -56,6 +59,7 @@ export const products = [
     description: "A traditional blend of roasted dals and spices for a wholesome taste that pairs perfectly with hot rice and ghee.",
     heatLevel: "Mild",
     origin: "Tamil Nadu",
+    category: "veg",
     image: "/images/parupu-podi.jpg",
     variants: [
       { id: "parupu-podi-50g", size: "50g Pack", price: 49 },
@@ -72,6 +76,7 @@ export const products = [
     description: "Crispy. Spicy. Irresistible. Perfect for authentic fish fry every time. No preservatives. Handmade with care.",
     heatLevel: "Hot",
     origin: "Tamil Nadu",
+    category: "non-veg",
     image: "/images/fish-fry-masala.jpg",
     variants: [
       { id: "fish-fry-masala-50g", size: "50g Pack", price: 49 },
@@ -88,6 +93,7 @@ export const products = [
     description: "Bold spices. Perfect marinade. Authentic tandoori flavour. No preservatives. Handmade with care.",
     heatLevel: "Medium Hot",
     origin: "Tamil Nadu",
+    category: "non-veg",
     image: "/images/tandoori-masala.jpg",
     variants: [
       { id: "tandoori-masala-50g", size: "50g Pack", price: 65 },
@@ -104,6 +110,7 @@ export const products = [
     description: "Perfectly blended spices for rich, aromatic and flavourful mutton dishes. No preservatives. Handmade with care.",
     heatLevel: "Medium Bold",
     origin: "Tamil Nadu",
+    category: "non-veg",
     image: "/images/mutton-masala.jpg",
     variants: [
       { id: "mutton-masala-50g", size: "50g Pack", price: 85 },
@@ -120,6 +127,7 @@ export const products = [
     description: "A perfect blend of traditional spices for juicy, flavorful and homestyle chicken dishes. No preservatives. Handmade with care.",
     heatLevel: "Medium",
     origin: "Tamil Nadu",
+    category: "non-veg",
     image: "/images/chicken-masala.jpg",
     variants: [
       { id: "chicken-masala-50g", size: "50g Pack", price: 85 },
@@ -136,6 +144,7 @@ export const products = [
     description: "The perfect blend of heat and flavour that brings life to every kolambu. No preservatives. Handmade with care.",
     heatLevel: "Hot",
     origin: "Tamil Nadu",
+    category: "veg",
     image: "/images/kolambu-powder.jpg",
     variants: [
       { id: "kolambu-powder-100g", size: "100g Pack", price: 79 },
@@ -151,6 +160,7 @@ export const products = [
     description: "A spoonful of tradition that makes every idly even better. No preservatives. Handmade with care.",
     heatLevel: "Mild",
     origin: "Tamil Nadu",
+    category: "veg",
     image: "/images/idly-podi.jpg",
     variants: [
       { id: "idly-podi-100g", size: "100g Pack", price: 49 },
@@ -166,6 +176,7 @@ export const products = [
     description: "A pinch of Garam Masala makes every dish extraordinary. No preservatives. Handmade with care.",
     heatLevel: "Warm",
     origin: "Tamil Nadu",
+    category: "veg",
     image: "/images/garam-masala.jpg",
     variants: [
       { id: "garam-masala-50g", size: "50g Pack", price: 85 },
@@ -182,6 +193,7 @@ export const products = [
     description: "Freshly ground coriander powder with a rich, earthy aroma. The base of every great curry. No preservatives. Handmade with care.",
     heatLevel: "Mild",
     origin: "Tamil Nadu",
+    category: "veg",
     image: "/images/coriander-powder.jpg",
     variants: [
       { id: "coriander-powder-50g", size: "50g Pack", price: 49 },
@@ -198,25 +210,44 @@ export const products = [
     description: "All your favourite spices, in one box! Contains Coriander Powder, Sambar Powder, Garam Masala, Briyani Masala, Kolambu Milagai Powder, and Idly Podi.",
     heatLevel: "Varied",
     origin: "Tamil Nadu",
+    category: "veg",
     image: "/images/combo-box.jpg",
     variants: [
       { id: "combo-box", size: "Combo 1 (6x25g)", price: 299 }
+    ]
+  },
+  {
+    id: "test-product",
+    name: "Anjaraipetti Test Product",
+    price: 1,
+    size: "1g Pack",
+    subtitle: "Testing Product",
+    description: "This is a 1 Rupee test product for verifying Razorpay payment integration. It has no delivery fee.",
+    heatLevel: "Mild",
+    origin: "Tamil Nadu",
+    category: "veg",
+    image: "/images/sambar-masala.jpg",
+    variants: [
+      { id: "test-product", size: "1g Pack", price: 1 }
     ]
   }
 ];
 
 export function getProductById(productId) {
+  if (!products || products.length === 0) {
+    return null;
+  }
   for (const product of products) {
     if (product.id === productId) {
       // Base product request (e.g. for landing page)
       return {
         ...product,
-        price: product.variants[0].price,
-        size: product.variants[0].size
+        price: product.variants?.[0]?.price || product.price || 0,
+        size: product.variants?.[0]?.size || product.size || ""
       };
     }
     // Variant request (e.g. from cart)
-    const variant = product.variants.find(v => v.id === productId);
+    const variant = product.variants?.find(v => v.id === productId);
     if (variant) {
       return {
         ...product,
@@ -228,5 +259,11 @@ export function getProductById(productId) {
     }
   }
   // Fallback
-  return { ...products[0], price: products[0].variants[0].price, size: products[0].variants[0].size };
+  const firstProduct = products[0];
+  return {
+    ...firstProduct,
+    price: firstProduct.variants?.[0]?.price || firstProduct.price || 0,
+    size: firstProduct.variants?.[0]?.size || firstProduct.size || ""
+  };
 }
+

@@ -25,6 +25,11 @@ export default function InvoiceDocument({ order }) {
           <p className="text-[0.65rem] font-bold uppercase tracking-[0.3em] text-cocoa/70">Namma Veetu</p>
           <p className="mt-1 font-display text-4xl leading-normal text-espresso drop-shadow-sm">Anjaraipetti</p>
           <p className="text-sm font-medium tracking-wide text-truffle/80">Premium Kitchen Essentials</p>
+          <div className="mt-3 space-y-0.5 text-[11px] text-truffle/60">
+            <p>FSSAI Reg. No: 22426425000511</p>
+            <p>Perungalthur, Chennai, Tamilnadu</p>
+            <p>Contact: Nammaveetuanjaraipetti.support@gmail.com</p>
+          </div>
         </div>
         <div className="text-right">
           <p className="text-[0.65rem] font-bold uppercase tracking-[0.25em] text-cocoa/60">Invoice Number</p>
@@ -113,6 +118,12 @@ export default function InvoiceDocument({ order }) {
             <span className="font-medium">Subtotal</span>
             <span className="font-medium">{formatINR(subtotal)}</span>
           </div>
+          {grandTotal - subtotal > 0 && (
+            <div className="flex items-center justify-between text-sm text-truffle mt-2">
+              <span className="font-medium">Delivery Fee</span>
+              <span className="font-medium">{formatINR(grandTotal - subtotal)}</span>
+            </div>
+          )}
           <div className="my-4 border-t border-dashed border-truffle/20" />
           <div className="flex items-end justify-between">
             <div>

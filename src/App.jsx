@@ -14,6 +14,7 @@ import LandingPage from "./pages/LandingPage";
 import OrderSuccessPage from "./pages/OrderSuccessPage";
 import ProductPage from "./pages/ProductPage";
 import ProductsPage from "./pages/ProductsPage";
+import RecipePage from "./pages/RecipePage";
 
 const ingredients = [
   { title: "Guntur Chilli", note: "Deep red color and bold chilli-forward heat." },
@@ -182,6 +183,7 @@ export default function App() {
               element={<CheckoutPage cartItems={cartItems} onClearCart={clearCart} />}
             />
             <Route path="/order/:orderId" element={<OrderSuccessPage />} />
+            <Route path="/recipe/:productId" element={<RecipePage />} />
             <Route path="/admin/login" element={<AdminLoginPage />} />
             <Route path="/admin/orders" element={<AdminOrdersPage />} />
             <Route path="*" element={<Navigate to="/" replace />} />

@@ -15,12 +15,12 @@ export default function Footer() {
           className="grid gap-12 md:grid-cols-2 lg:grid-cols-4"
         >
           {/* Brand Section */}
-          <div className="lg:col-span-2">
+          <div>
             <div className="h-10 w-32 opacity-80">
               <BrandHatMark />
             </div>
             <p className="mt-4 font-display text-2xl text-espresso">Anjaraipetti</p>
-            <p className="mt-2 max-w-sm text-sm leading-relaxed text-truffle/75">
+            <p className="mt-2 text-sm leading-relaxed text-truffle/75">
               Handcrafted masala blends bringing authentic South Indian flavors to your kitchen. 
               Premium spices, bold taste, restaurant-quality finish.
             </p>
@@ -48,19 +48,36 @@ export default function Footer() {
             </ul>
           </div>
 
-          {/* Contact */}
+          {/* Company & FSSAI Details */}
           <div>
-            <h4 className="font-semibold uppercase tracking-[0.2em] text-cocoa">Get in Touch</h4>
+            <h4 className="font-semibold uppercase tracking-[0.2em] text-cocoa">Company Details</h4>
+            <div className="mt-4 space-y-3 text-sm text-truffle/75">
+              <div>
+                <p className="font-semibold text-espresso">FSSAI Reg. No.</p>
+                <p className="mt-0.5 font-mono text-cocoa">22426425000511</p>
+              </div>
+              <div>
+                <p className="font-semibold text-espresso">Address</p>
+                <p className="mt-0.5 leading-relaxed">Perungalthur, Chennai, Tamilnadu</p>
+              </div>
+            </div>
+          </div>
+
+          {/* Contact Support */}
+          <div>
+            <h4 className="font-semibold uppercase tracking-[0.2em] text-cocoa">Support</h4>
             <div className="mt-4 space-y-3 text-sm">
               <div>
                 <p className="text-truffle/70">📧 Email</p>
-                <a href="mailto:bharathjai2005@gmail.com" className="font-semibold text-cocoa transition hover:text-espresso">
-                  bharathjai2005@gmail.com
+                <a href="mailto:Nammaveetuanjaraipetti.support@gmail.com" className="font-semibold text-cocoa transition hover:text-espresso break-all">
+                  Nammaveetuanjaraipetti.support@gmail.com
                 </a>
               </div>
               <div>
-                <p className="text-truffle/70">👤 Freelancer</p>
-                <p className="font-semibold text-cocoa">Bharath</p>
+                <p className="text-truffle/70">📞 Phone</p>
+                <a href="tel:9442698661" className="font-semibold text-cocoa transition hover:text-espresso">
+                  9442698661
+                </a>
               </div>
             </div>
           </div>
@@ -78,7 +95,16 @@ export default function Footer() {
           className="mt-8 flex flex-col items-center justify-between gap-4 text-sm text-truffle/60 sm:flex-row"
         >
           <p>© {currentYear} Anjaraipetti. All rights reserved.</p>
-          <p>Crafted with ❤️ by <span className="font-semibold text-cocoa">Bharath</span> | Freelancer</p>
+          <p>
+            Crafted with ❤️ by{" "}
+            <a
+              href="mailto:bharathjai2005@gmail.com"
+              className="font-semibold text-cocoa transition hover:text-espresso underline decoration-dashed decoration-cocoa/30 hover:decoration-solid"
+              title="Contact Developer: bharathjai2005@gmail.com"
+            >
+              Bharath | Freelancer (bharathjai2005@gmail.com)
+            </a>
+          </p>
         </motion.div>
       </div>
     </footer>

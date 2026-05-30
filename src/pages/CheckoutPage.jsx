@@ -85,7 +85,9 @@ export default function CheckoutPage({ cartItems, onClearCart }) {
   }, [form.pincode]);
 
   const subtotal = useMemo(() => cartItems?.reduce((sum, item) => sum + item.product.price * item.quantity, 0) || 0, [cartItems]);
-  const total = subtotal;
+  const hasTestProduct = useMemo(() => cartItems?.some(item => item.product.id === "test-product" || item.product.id.startsWith("test-product")) || false, [cartItems]);
+  const deliveryFee = useMemo(() => hasTestProduct ? 0 : (subtotal >= 299 ? 0 : 50), [subtotal, hasTestProduct]);
+  const total = useMemo(() => subtotal + deliveryFee, [subtotal, deliveryFee]);
 
   // Don't redirect if truck animation is in progress or order is confirmed
   if ((!cartItems || cartItems.length === 0) && !isSubmitting && !confirmedOrderId && !isAnimating.current && !isConfirmed.current) {
@@ -306,15 +308,20 @@ export default function CheckoutPage({ cartItems, onClearCart }) {
           className="space-y-6 rounded-3xl border border-truffle/10 bg-white/75 p-6 shadow-luxe backdrop-blur-xl"
         >
           <section>
-            <h2 className="font-display text-3xl text-truffle">Delivery Address</h2>
+            <div className="flex flex-wrap items-center justify-between gap-4 border-b border-truffle/10 pb-3">
+              <h2 className="font-display text-3xl text-truffle">Delivery Address</h2>
+              <p className="text-xs text-truffle/50">
+                <span className="text-red-500 font-bold">*</span> Indicates mandatory fields
+              </p>
+            </div>
             <div className="mt-4 grid gap-4 sm:grid-cols-2">
               <div>
-                <label className={labelClass}>Full Name</label>
+                <label className={labelClass}>Full Name <span className="text-red-500 font-bold ml-0.5">*</span></label>
                 <input name="customerName" value={form.customerName} onChange={handleInput} className={inputClass} />
                 {errors.customerName ? <p className="mt-1 text-xs text-red-600">{errors.customerName}</p> : null}
               </div>
               <div>
-                <label className={labelClass}>Mobile Number</label>
+                <label className={labelClass}>Mobile Number <span className="text-red-500 font-bold ml-0.5">*</span></label>
                 <input name="phone" value={form.phone} onChange={handleInput} className={inputClass} />
                 {errors.phone ? <p className="mt-1 text-xs text-red-600">{errors.phone}</p> : null}
               </div>
@@ -323,7 +330,7 @@ export default function CheckoutPage({ cartItems, onClearCart }) {
                 <input name="email" value={form.email} onChange={handleInput} className={inputClass} />
               </div>
               <div className="sm:col-span-2">
-                <label className={labelClass}>Address Line 1</label>
+                <label className={labelClass}>Address Line 1 <span className="text-red-500 font-bold ml-0.5">*</span></label>
                 <input name="line1" value={form.line1} onChange={handleInput} className={inputClass} />
                 {errors.line1 || errors.addressLine1 ? (
                   <p className="mt-1 text-xs text-red-600">{errors.line1 || errors.addressLine1}</p>
@@ -338,7 +345,7 @@ export default function CheckoutPage({ cartItems, onClearCart }) {
                 <input name="landmark" value={form.landmark} onChange={handleInput} className={inputClass} />
               </div>
               <div className="relative">
-                <label className={labelClass}>Pincode</label>
+                <label className={labelClass}>Pincode <span className="text-red-500 font-bold ml-0.5">*</span></label>
                 <div className="relative">
                   <input
                     name="pincode"
@@ -362,12 +369,12 @@ export default function CheckoutPage({ cartItems, onClearCart }) {
                 {errors.pincode ? <p className="mt-1 text-xs text-red-600">{errors.pincode}</p> : null}
               </div>
               <div>
-                <label className={labelClass}>City</label>
+                <label className={labelClass}>City <span className="text-red-500 font-bold ml-0.5">*</span></label>
                 <input name="city" value={form.city} onChange={handleInput} className={inputClass} />
                 {errors.city ? <p className="mt-1 text-xs text-red-600">{errors.city}</p> : null}
               </div>
               <div>
-                <label className={labelClass}>State</label>
+                <label className={labelClass}>State <span className="text-red-500 font-bold ml-0.5">*</span></label>
                 <input name="state" value={form.state} onChange={handleInput} className={inputClass} />
                 {errors.state ? <p className="mt-1 text-xs text-red-600">{errors.state}</p> : null}
               </div>
@@ -376,25 +383,20 @@ export default function CheckoutPage({ cartItems, onClearCart }) {
 
           <section>
             <h2 className="font-display text-3xl text-truffle">Payment Method</h2>
-            <div className="mt-4 grid gap-3 sm:grid-cols-2">
+            <div className="mt-4 grid gap-3">
               {[
-                { id: "razorpay", label: "Razorpay (UPI/Card/Netbanking)" },
-                { id: "cod", label: "Cash on Delivery" }
+                { id: "razorpay", label: "Razorpay (UPI/Card/Netbanking)" }
               ].map((method) => (
                 <label
                   key={method.id}
-                  className={`cursor-pointer rounded-xl border px-4 py-3 text-sm ${
-                    form.paymentMethod === method.id
-                      ? "border-cocoa bg-cocoa/10 text-cocoa"
-                      : "border-truffle/20 bg-white/70 text-truffle"
-                  }`}
+                  className={`cursor-pointer rounded-xl border px-4 py-3 text-sm border-cocoa bg-cocoa/10 text-cocoa`}
                 >
                   <input
                     type="radio"
-                    className="mr-2"
+                    className="mr-2 accent-cocoa"
                     name="paymentMethod"
                     value={method.id}
-                    checked={form.paymentMethod === method.id}
+                    checked={true}
                     onChange={handleInput}
                   />
                   {method.label}
@@ -421,21 +423,31 @@ export default function CheckoutPage({ cartItems, onClearCart }) {
               </div>
             ))}
           </div>
-          <div className="mt-5 space-y-2 text-truffle/85">
+          <div className="mt-5 space-y-2 text-truffle/85 text-sm">
             <div className="flex items-center justify-between">
               <span>Subtotal</span>
               <span>{formatINR(subtotal)}</span>
             </div>
+            <div className="flex items-center justify-between">
+              <span>Delivery Fee</span>
+              <span>
+                {deliveryFee === 0 ? (
+                  <span className="text-emerald-600 font-bold">FREE</span>
+                ) : (
+                  formatINR(deliveryFee)
+                )}
+              </span>
+            </div>
             <div className="border-t border-truffle/10 pt-3 text-lg font-semibold">
               <div className="flex items-center justify-between">
                 <span>Grand Total</span>
-                <span>{formatINR(total)}</span>
+                <span className="text-cocoa font-bold">{formatINR(total)}</span>
               </div>
             </div>
           </div>
           <div className="mt-6">
             <TruckOrderButton
-              label={form.paymentMethod === "cod" ? "Place COD Order" : "Pay with Razorpay"}
+              label="Pay with Razorpay"
               successLabel="Order Placed"
               disabled={isSubmitting}
               onValidate={validateForm}
