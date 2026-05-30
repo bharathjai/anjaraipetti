@@ -26,9 +26,9 @@ const io = new Server(httpServer, {
 });
 
 const PRODUCTS = {
-  "sambar-masala-50g": { id: "sambar-masala-50g", name: "Anjaraipetti Sambar Masala (50g Pack)", price: 65, stock: 150 },
-  "sambar-masala-100g": { id: "sambar-masala-100g", name: "Anjaraipetti Sambar Masala (100g Pack)", price: 119, stock: 150 },
-  "sambar-masala-250g": { id: "sambar-masala-250g", name: "Anjaraipetti Sambar Masala (250g Pack)", price: 289, stock: 150 },
+  "sambar-masala-50g": { id: "sambar-masala-50g", name: "Anjaraipetti Sambar Masala (50g Pack)", price: 1, stock: 150 },
+  "sambar-masala-100g": { id: "sambar-masala-100g", name: "Anjaraipetti Sambar Masala (100g Pack)", price: 1, stock: 150 },
+  "sambar-masala-250g": { id: "sambar-masala-250g", name: "Anjaraipetti Sambar Masala (250g Pack)", price: 1, stock: 150 },
 
   "biryani-masala-50g": { id: "biryani-masala-50g", name: "Anjaraipetti Biriyani Masala (50g Pack)", price: 75, stock: 150 },
   "biryani-masala-100g": { id: "biryani-masala-100g", name: "Anjaraipetti Biriyani Masala (100g Pack)", price: 139, stock: 150 },

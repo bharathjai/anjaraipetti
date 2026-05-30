@@ -2,7 +2,7 @@ export const products = [
   {
     id: "sambar-masala",
     name: "Anjaraipetti Sambar Masala",
-    price: 65,
+    price: 1,
     size: "50g Pack",
     subtitle: "Authentic Homemade Taste",
     description: "The heart of every homemade sambar is the right blend of spices. No preservatives. Handmade with care.",
@@ -11,9 +11,9 @@ export const products = [
     category: "veg",
     image: "/images/sambar-masala.jpg",
     variants: [
-      { id: "sambar-masala-50g", size: "50g Pack", price: 65 },
-      { id: "sambar-masala-100g", size: "100g Pack", price: 119 },
-      { id: "sambar-masala-250g", size: "250g Pack", price: 289 }
+      { id: "sambar-masala-50g", size: "50g Pack", price: 1 },
+      { id: "sambar-masala-100g", size: "100g Pack", price: 1 },
+      { id: "sambar-masala-250g", size: "250g Pack", price: 1 }
     ]
   },
   {

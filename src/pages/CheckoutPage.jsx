@@ -399,29 +399,13 @@ export default function CheckoutPage({ cartItems, onClearCart }) {
           <section>
             <h2 className="font-display text-3xl text-truffle">Payment Method</h2>
             <div className="mt-4 grid gap-3">
-              {[
-                { id: "razorpay", label: "Razorpay (UPI/Card/Netbanking)" },
-                { id: "cod", label: "Cash on Delivery (COD) - Testing Mode" }
-              ].map((method) => (
-                <label
-                  key={method.id}
-                  className={`cursor-pointer rounded-xl border px-4 py-3 text-sm transition-all ${
-                    form.paymentMethod === method.id
-                      ? "border-cocoa bg-cocoa/10 text-cocoa font-semibold"
-                      : "border-truffle/15 text-truffle/70 hover:border-truffle/35"
-                  }`}
-                >
-                  <input
-                    type="radio"
-                    className="mr-2 accent-cocoa cursor-pointer"
-                    name="paymentMethod"
-                    value={method.id}
-                    checked={form.paymentMethod === method.id}
-                    onChange={handleInput}
-                  />
-                  {method.label}
-                </label>
-              ))}
+              <div className="rounded-xl border border-cocoa bg-cocoa/10 px-4 py-3 text-sm text-cocoa font-semibold flex items-center justify-between">
+                <div className="flex items-center">
+                  <span className="w-2.5 h-2.5 rounded-full bg-cocoa mr-3 animate-pulse"></span>
+                  Razorpay (UPI/Card/Netbanking)
+                </div>
+                <span className="text-xs font-bold uppercase tracking-wider bg-cocoa/20 px-2 py-0.5 rounded text-cocoa">Active</span>
+              </div>
             </div>
           </section>
 
