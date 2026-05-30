@@ -385,18 +385,23 @@ export default function CheckoutPage({ cartItems, onClearCart }) {
             <h2 className="font-display text-3xl text-truffle">Payment Method</h2>
             <div className="mt-4 grid gap-3">
               {[
-                { id: "razorpay", label: "Razorpay (UPI/Card/Netbanking)" }
+                { id: "razorpay", label: "Razorpay (UPI/Card/Netbanking)" },
+                { id: "cod", label: "Cash on Delivery (COD) - Testing Mode" }
               ].map((method) => (
                 <label
                   key={method.id}
-                  className={`cursor-pointer rounded-xl border px-4 py-3 text-sm border-cocoa bg-cocoa/10 text-cocoa`}
+                  className={`cursor-pointer rounded-xl border px-4 py-3 text-sm transition-all ${
+                    form.paymentMethod === method.id
+                      ? "border-cocoa bg-cocoa/10 text-cocoa font-semibold"
+                      : "border-truffle/15 text-truffle/70 hover:border-truffle/35"
+                  }`}
                 >
                   <input
                     type="radio"
-                    className="mr-2 accent-cocoa"
+                    className="mr-2 accent-cocoa cursor-pointer"
                     name="paymentMethod"
                     value={method.id}
-                    checked={true}
+                    checked={form.paymentMethod === method.id}
                     onChange={handleInput}
                   />
                   {method.label}
@@ -447,7 +452,7 @@ export default function CheckoutPage({ cartItems, onClearCart }) {
           </div>
           <div className="mt-6">
             <TruckOrderButton
-              label="Pay with Razorpay"
+              label={form.paymentMethod === "cod" ? "Place COD Order" : "Pay with Razorpay"}
               successLabel="Order Placed"
               disabled={isSubmitting}
               onValidate={validateForm}

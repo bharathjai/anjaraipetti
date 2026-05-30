@@ -771,11 +771,33 @@ app.post("/api/admin/login", (req, res) => {
   });
 });
 
-app.post("/api/orders", (req, res) => {
-  return res.status(400).json({
-    ok: false,
-    message: "Cash on Delivery (COD) is disabled. Orders can only be placed through secure verified Razorpay confirmation."
-  });
+app.post("/api/orders", async (req, res) => {
+  const { errors, items, method } = validatePayload(req.body);
+  
+  if (method === "razorpay") {
+    return res.status(400).json({ ok: false, message: "Razorpay payments must go through signature verification." });
+  }
+
+  if (Object.keys(errors).length > 0) {
+    return res.status(400).json({ ok: false, errors });
+  }
+
+  try {
+    const order = await createFinalOrder({
+      items,
+      customer: req.body.customer,
+      address: req.body.address,
+      payment: {
+        method: "cod",
+        status: "Pay on delivery"
+      }
+    });
+
+    return res.json({ ok: true, order });
+  } catch (error) {
+    console.error("Direct order error:", error);
+    return res.status(500).json({ ok: false, message: "Unable to place order" });
+  }
 });
 
 app.post("/api/payments/razorpay/order", async (req, res) => {
