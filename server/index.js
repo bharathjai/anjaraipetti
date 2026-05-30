@@ -842,8 +842,13 @@ app.post("/api/payments/razorpay/order", async (req, res) => {
       keyId: razorpayKeyId,
       razorpayOrder
     });
-  } catch (_error) {
-    return res.status(500).json({ ok: false, message: "Unable to create Razorpay order" });
+  } catch (error) {
+    console.error("Razorpay order creation failed:", error);
+    return res.status(500).json({
+      ok: false,
+      message: "Unable to create Razorpay order",
+      error: error.message || String(error)
+    });
   }
 });
 

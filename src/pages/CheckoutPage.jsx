@@ -195,7 +195,8 @@ export default function CheckoutPage({ cartItems, onClearCart }) {
     });
     const createOrderPayload = await createOrderResponse.json();
     if (!createOrderResponse.ok || !createOrderPayload.ok) {
-      throw new Error(createOrderPayload.message || "Unable to initialize Razorpay");
+      const details = createOrderPayload.error ? `: ${createOrderPayload.error}` : "";
+      throw new Error((createOrderPayload.message || "Unable to initialize Razorpay") + details);
     }
 
     const keyId = createOrderPayload.keyId || import.meta.env.VITE_RAZORPAY_KEY_ID;
