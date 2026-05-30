@@ -13,6 +13,7 @@ import mongoose from "mongoose";
 import Razorpay from "razorpay";
 import { generateInvoicePDF } from "./pdfGenerator.js";
 import nodemailer from "nodemailer";
+import admin from "firebase-admin";
 
 const app = express();
 app.use(cors());
@@ -148,7 +149,8 @@ const appStateSchema = new mongoose.Schema(
     invoiceSequence: { type: Number, required: true, default: 0 },
     productId: { type: String, default: "biryani-masala" },
     cartQuantity: { type: Number, default: 0 },
-    inventoryAvailable: { type: Number, default: 120 }
+    inventoryAvailable: { type: Number, default: 120 },
+    deliveryChargeEnabled: { type: Boolean, default: true }
   },
   { versionKey: false }
 );
@@ -165,6 +167,124 @@ const productPriceSchema = new mongoose.Schema(
 );
 
 const ProductPriceModel = mongoose.models.ProductPrice || mongoose.model("ProductPrice", productPriceSchema);
+
+const adminDeviceTokenSchema = new mongoose.Schema(
+  {
+    token: { type: String, required: true, unique: true, index: true },
+    adminEmail: { type: String, required: true, index: true },
+    createdAt: { type: Date, default: Date.now }
+  },
+  { versionKey: false }
+);
+
+const AdminDeviceTokenModel = mongoose.models.AdminDeviceToken || mongoose.model("AdminDeviceToken", adminDeviceTokenSchema);
+
+let deliveryChargeEnabled = true;
+
+const memoryDeviceTokens = new Map();
+
+async function registerDeviceToken(token, adminEmail) {
+  if (isPersistenceEnabled()) {
+    await AdminDeviceTokenModel.findOneAndUpdate(
+      { token },
+      { token, adminEmail, createdAt: new Date() },
+      { upsert: true }
+    );
+  } else {
+    memoryDeviceTokens.set(token, adminEmail);
+  }
+}
+
+async function removeDeviceToken(token) {
+  if (isPersistenceEnabled()) {
+    await AdminDeviceTokenModel.deleteOne({ token });
+  } else {
+    memoryDeviceTokens.delete(token);
+  }
+}
+
+async function getDeviceTokens() {
+  if (isPersistenceEnabled()) {
+    const list = await AdminDeviceTokenModel.find({}).lean();
+    return list.map(item => item.token);
+  } else {
+    return Array.from(memoryDeviceTokens.keys());
+  }
+}
+
+let firebaseAdminInitialized = false;
+if (process.env.FIREBASE_PROJECT_ID && process.env.FIREBASE_CLIENT_EMAIL && process.env.FIREBASE_PRIVATE_KEY) {
+  try {
+    admin.initializeApp({
+      credential: admin.credential.cert({
+        projectId: process.env.FIREBASE_PROJECT_ID,
+        clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
+        privateKey: process.env.FIREBASE_PRIVATE_KEY.replace(/\\n/g, "\n")
+      })
+    });
+    firebaseAdminInitialized = true;
+    console.log("Firebase Admin SDK initialized successfully.");
+  } catch (err) {
+    console.error("Failed to initialize Firebase Admin SDK:", err);
+  }
+} else {
+  console.warn("Firebase Admin SDK credentials not fully set in .env. Real-time push notifications will be skipped.");
+}
+
+async function sendNewOrderNotification(order) {
+  if (!firebaseAdminInitialized) {
+    console.log("Firebase Admin not initialized. Skipping push notification.");
+    return;
+  }
+
+  try {
+    const tokens = await getDeviceTokens();
+    if (tokens.length === 0) {
+      console.log("No registered admin device tokens found. Skipping push notification.");
+      return;
+    }
+
+    const payload = {
+      notification: {
+        title: "New Order Received",
+        body: `${order.customer?.name || "Customer"}\n${order.orderId}\n₹${order.grandTotal}`
+      },
+      webpush: {
+        fcmOptions: {
+          link: "/admin/orders"
+        }
+      }
+    };
+
+    console.log(`Sending push notification to ${tokens.length} registered admin devices...`);
+    
+    const response = await admin.messaging().sendEach(tokens.map(token => ({
+      token,
+      ...payload
+    })));
+
+    console.log(`FCM response: successfully sent ${response.successCount} messages; failed ${response.failureCount} messages.`);
+    
+    const tokensToRemove = [];
+    response.responses.forEach((resp, idx) => {
+      if (!resp.success) {
+        const errCode = resp.error?.code;
+        if (errCode === "messaging/invalid-registration-token" || errCode === "messaging/registration-token-not-registered") {
+          tokensToRemove.push(tokens[idx]);
+        }
+      }
+    });
+
+    if (tokensToRemove.length > 0) {
+      console.log(`Cleaning up ${tokensToRemove.length} inactive device tokens...`);
+      for (const t of tokensToRemove) {
+        await removeDeviceToken(t);
+      }
+    }
+  } catch (err) {
+    console.error("Failed to send FCM push notification:", err);
+  }
+}
 const razorpayKeyId = process.env.RAZORPAY_KEY_ID || "";
 const razorpayKeySecret = process.env.RAZORPAY_KEY_SECRET || "";
 const razorpayClient =
@@ -523,7 +643,8 @@ async function initializeMongo() {
           key: "global",
           cart: { productId: "", quantity: 0 },
           inventoryByProduct,
-          invoiceSequence: 0
+          invoiceSequence: 0,
+          deliveryChargeEnabled: true
         }
       },
       { upsert: true, new: true }
@@ -554,6 +675,10 @@ async function initializeMongo() {
       }
 
       memoryInvoiceSequence = Math.max(0, Number(state.invoiceSequence) || 0);
+      
+      if (typeof state.deliveryChargeEnabled === "boolean") {
+        deliveryChargeEnabled = state.deliveryChargeEnabled;
+      }
     }
 
     await initializeCustomPrices();
@@ -581,7 +706,8 @@ async function persistState() {
         invoiceSequence: memoryInvoiceSequence,
         productId: cartState.productId || "biryani-masala",
         cartQuantity: cartState.quantity,
-        inventoryAvailable: Number(inventoryByProduct["biryani-masala"] ?? 0)
+        inventoryAvailable: Number(inventoryByProduct["biryani-masala"] ?? 0),
+        deliveryChargeEnabled
       }
     },
     { upsert: true }
@@ -735,7 +861,7 @@ async function createFinalOrder({ items, customer, address, payment }) {
   const invoiceNumber = await nextInvoiceNumber();
   const subtotal = processedItems.reduce((sum, item) => sum + item.subtotal, 0);
   const hasTestProduct = processedItems.some(item => item.productId === "test-product" || item.productId.startsWith("test-product"));
-  const deliveryFee = hasTestProduct ? 0 : (subtotal >= 299 ? 0 : 50);
+  const deliveryFee = !deliveryChargeEnabled || hasTestProduct ? 0 : (subtotal >= 299 ? 0 : 50);
   const grandTotal = subtotal + deliveryFee;
   const total = grandTotal;
   const orderId = `ANJ-${crypto.randomBytes(5).toString("hex").toUpperCase()}`;
@@ -770,6 +896,13 @@ async function createFinalOrder({ items, customer, address, payment }) {
     console.error("Failed to send email during order creation:", emailError);
   }
 
+  // Dispatch push notification to registered admins
+  try {
+    await sendNewOrderNotification(order);
+  } catch (pushError) {
+    console.error("Failed to dispatch push notification:", pushError);
+  }
+
   return order;
 }
 
@@ -798,6 +931,76 @@ app.post("/api/admin/login", (req, res) => {
     token,
     admin: { email: adminEmail, role: "admin" }
   });
+});
+
+app.get("/api/firebase-config", (req, res) => {
+  return res.json({
+    apiKey: process.env.VITE_FIREBASE_API_KEY || "",
+    authDomain: process.env.VITE_FIREBASE_AUTH_DOMAIN || "",
+    projectId: process.env.VITE_FIREBASE_PROJECT_ID || "",
+    storageBucket: process.env.VITE_FIREBASE_STORAGE_BUCKET || "",
+    messagingSenderId: process.env.VITE_FIREBASE_MESSAGING_SENDER_ID || "",
+    appId: process.env.VITE_FIREBASE_APP_ID || "",
+    vapidKey: process.env.VITE_FIREBASE_VAPID_KEY || ""
+  });
+});
+
+app.post("/api/admin/notifications/subscribe", requireAdminAuth, async (req, res) => {
+  const { token } = req.body || {};
+  if (!token) {
+    return res.status(400).json({ ok: false, message: "Device registration token is required" });
+  }
+
+  try {
+    await registerDeviceToken(token, req.admin.email);
+    return res.json({ ok: true, message: "Subscribed to push notifications successfully" });
+  } catch (err) {
+    console.error("Subscription failed:", err);
+    return res.status(500).json({ ok: false, message: "Failed to store registration token" });
+  }
+});
+
+app.post("/api/admin/notifications/unsubscribe", requireAdminAuth, async (req, res) => {
+  const { token } = req.body || {};
+  if (!token) {
+    return res.status(400).json({ ok: false, message: "Device registration token is required" });
+  }
+
+  try {
+    await removeDeviceToken(token);
+    return res.json({ ok: true, message: "Unsubscribed from push notifications successfully" });
+  } catch (err) {
+    console.error("Unsubscription failed:", err);
+    return res.status(500).json({ ok: false, message: "Failed to remove registration token" });
+  }
+});
+
+app.get("/api/settings", (req, res) => {
+  return res.json({ ok: true, deliveryChargeEnabled });
+});
+
+app.post("/api/admin/settings/delivery", requireAdminAuth, async (req, res) => {
+  const { enabled } = req.body || {};
+  if (typeof enabled !== "boolean") {
+    return res.status(400).json({ ok: false, message: "Parameter 'enabled' must be a boolean" });
+  }
+
+  try {
+    deliveryChargeEnabled = enabled;
+    await persistState();
+    
+    // Broadcast setting change to all clients
+    io.emit("settings:delivery", { deliveryChargeEnabled });
+
+    return res.json({
+      ok: true,
+      message: `Delivery charges ${enabled ? "enabled" : "disabled"} successfully`,
+      deliveryChargeEnabled
+    });
+  } catch (err) {
+    console.error("Failed to save delivery charge setting:", err);
+    return res.status(500).json({ ok: false, message: "Failed to update setting" });
+  }
 });
 
 app.get("/api/products/prices", (req, res) => {
@@ -895,7 +1098,7 @@ app.post("/api/payments/razorpay/order", async (req, res) => {
 
   // Calculate and add delivery charge!
   const hasTestProduct = items.some(item => item.productId === "test-product" || item.productId.startsWith("test-product"));
-  const deliveryFee = hasTestProduct ? 0 : (totalAmount >= 299 ? 0 : 50);
+  const deliveryFee = !deliveryChargeEnabled || hasTestProduct ? 0 : (totalAmount >= 299 ? 0 : 50);
   totalAmount += deliveryFee;
 
   try {

@@ -76,6 +76,7 @@ export default function App() {
   });
   const [dynamicProducts, setDynamicProducts] = useState(products);
   const [inventoryMap, setInventoryMap] = useState({});
+  const [deliveryChargeEnabled, setDeliveryChargeEnabled] = useState(true);
   const socketRef = useRef(null);
   const defaultProductId = products[0].id;
 
@@ -88,6 +89,10 @@ export default function App() {
     socket.on("cart:state", (payload) => {
       const inventory = payload?.inventory || payload?.inventoryByProduct || {};
       setInventoryMap(inventory);
+    });
+
+    socket.on("settings:delivery", ({ deliveryChargeEnabled }) => {
+      setDeliveryChargeEnabled(deliveryChargeEnabled);
     });
 
     // Listen to real-time price updates over WebSocket
@@ -142,7 +147,22 @@ export default function App() {
       }
     };
 
+    const fetchSettings = async () => {
+      try {
+        const response = await fetch(`${API_BASE_URL}/api/settings`);
+        if (response.ok) {
+          const payload = await response.json();
+          if (payload.ok && typeof payload.deliveryChargeEnabled === "boolean") {
+            setDeliveryChargeEnabled(payload.deliveryChargeEnabled);
+          }
+        }
+      } catch (err) {
+        console.error("Failed to fetch settings:", err);
+      }
+    };
+
     fetchCustomPrices();
+    fetchSettings();
 
     return () => {
       socket.disconnect();
@@ -248,12 +268,19 @@ export default function App() {
               cartItems={cartItems}
               cartQuantity={cartQuantity}
               onUpdateQuantity={updateCartQuantity}
+              deliveryChargeEnabled={deliveryChargeEnabled}
             />
           }
         />
         <Route
           path="/checkout"
-          element={<CheckoutPage cartItems={cartItems} onClearCart={clearCart} />}
+          element={
+            <CheckoutPage
+              cartItems={cartItems}
+              onClearCart={clearCart}
+              deliveryChargeEnabled={deliveryChargeEnabled}
+            />
+          }
         />
         <Route path="/order/:orderId" element={<OrderSuccessPage />} />
         <Route path="/recipe/:productId" element={<RecipePage />} />

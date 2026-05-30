@@ -35,7 +35,7 @@ const initialForm = {
   paymentMethod: "razorpay"
 };
 
-export default function CheckoutPage({ cartItems, onClearCart }) {
+export default function CheckoutPage({ cartItems, onClearCart, deliveryChargeEnabled = true }) {
   const navigate = useNavigate();
   const formRef = useRef(null);
   const pendingOrderId = useRef("");   // holds orderId until animation completes
@@ -87,7 +87,7 @@ export default function CheckoutPage({ cartItems, onClearCart }) {
 
   const subtotal = useMemo(() => cartItems?.reduce((sum, item) => sum + item.product.price * item.quantity, 0) || 0, [cartItems]);
   const hasTestProduct = useMemo(() => cartItems?.some(item => item.product.id === "test-product" || item.product.id.startsWith("test-product")) || false, [cartItems]);
-  const deliveryFee = useMemo(() => hasTestProduct ? 0 : (subtotal >= 299 ? 0 : 50), [subtotal, hasTestProduct]);
+  const deliveryFee = useMemo(() => !deliveryChargeEnabled || hasTestProduct ? 0 : (subtotal >= 299 ? 0 : 50), [subtotal, hasTestProduct, deliveryChargeEnabled]);
   const total = useMemo(() => subtotal + deliveryFee, [subtotal, deliveryFee]);
 
   // Don't redirect if truck animation is in progress or order is confirmed

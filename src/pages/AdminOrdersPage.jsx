@@ -22,7 +22,136 @@ export default function AdminOrdersPage() {
 
   const adminToken = useMemo(() => localStorage.getItem(ADMIN_TOKEN_KEY) || "", []);
 
+  const [subStatus, setSubStatus] = useState("loading"); // loading, subscribed, unsubscribed, permission_denied, unsupported
+  const [swRegistration, setSwRegistration] = useState(null);
+
+  useEffect(() => {
+    let active = true;
+    const checkSubscription = async () => {
+      if (typeof window === "undefined" || !("serviceWorker" in navigator) || !("Notification" in window)) {
+        if (active) setSubStatus("unsupported");
+        return;
+      }
+
+      if (Notification.permission === "denied") {
+        if (active) setSubStatus("permission_denied");
+        return;
+      }
+
+      try {
+        const { initFirebase } = await import("../config/firebase");
+        const { messaging } = await initFirebase();
+        if (!messaging) {
+          if (active) setSubStatus("unsupported");
+          return;
+        }
+
+        const reg = await navigator.serviceWorker.register("/firebase-messaging-sw.js");
+        if (active) setSwRegistration(reg);
+
+        const savedPref = localStorage.getItem("anj_admin_subscribed");
+        if (savedPref === "true" && Notification.permission === "granted") {
+          if (active) setSubStatus("subscribed");
+        } else {
+          if (active) setSubStatus("unsubscribed");
+        }
+      } catch (err) {
+        console.error("FCM check failed:", err);
+        if (active) setSubStatus("unsubscribed");
+      }
+    };
+
+    checkSubscription();
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  const handleSubscribe = async () => {
+    setSubStatus("loading");
+    try {
+      if (!swRegistration) {
+        throw new Error("Service worker not registered");
+      }
+
+      const permission = await Notification.requestPermission();
+      if (permission !== "granted") {
+        setSubStatus("permission_denied");
+        return;
+      }
+
+      const { initFirebase } = await import("../config/firebase");
+      const { messaging, config } = await initFirebase();
+      if (!messaging || !config?.vapidKey) {
+        throw new Error("Firebase Messaging configuration is missing or incomplete.");
+      }
+
+      const { getToken } = await import("firebase/messaging");
+      const token = await getToken(messaging, {
+        vapidKey: config.vapidKey,
+        serviceWorkerRegistration: swRegistration
+      });
+
+      if (!token) {
+        throw new Error("Could not retrieve Firebase device token.");
+      }
+
+      const response = await fetch(`${API_BASE_URL}/api/admin/notifications/subscribe`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${adminToken}`
+        },
+        body: JSON.stringify({ token })
+      });
+
+      const payload = await response.json();
+      if (response.status === 401 || response.status === 403) {
+        localStorage.removeItem(ADMIN_TOKEN_KEY);
+        navigate("/admin/login", { replace: true });
+        return;
+      }
+      if (!response.ok || !payload.ok) {
+        throw new Error(payload.message || "Failed to save subscription on server.");
+      }
+
+      localStorage.setItem("anj_admin_subscribed", "true");
+      localStorage.setItem("anj_admin_fcm_token", token);
+      setSubStatus("subscribed");
+    } catch (err) {
+      console.error("Failed to subscribe:", err);
+      alert(err.message || "An error occurred while enabling notifications.");
+      setSubStatus("unsubscribed");
+    }
+  };
+
+  const handleUnsubscribe = async () => {
+    setSubStatus("loading");
+    try {
+      const savedToken = localStorage.getItem("anj_admin_fcm_token");
+      if (savedToken) {
+        await fetch(`${API_BASE_URL}/api/admin/notifications/unsubscribe`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${adminToken}`
+          },
+          body: JSON.stringify({ token: savedToken })
+        });
+      }
+    } catch (err) {
+      console.error("Failed to unsubscribe on server:", err);
+    } finally {
+      localStorage.removeItem("anj_admin_subscribed");
+      localStorage.removeItem("anj_admin_fcm_token");
+      setSubStatus("unsubscribed");
+    }
+  };
+
   const [activeTab, setActiveTab] = useState("orders");
+  const [adminDeliveryChargeEnabled, setAdminDeliveryChargeEnabled] = useState(true);
+  const [updatingDeliverySetting, setUpdatingDeliverySetting] = useState(false);
+  
   const [productsState, setProductsState] = useState(() => {
     return staticProducts.flatMap((p) => {
       if (p.variants && p.variants.length > 0) {
@@ -74,7 +203,23 @@ export default function AdminOrdersPage() {
         console.error("Failed to load prices in admin:", err);
       }
     };
+
+    const fetchSettings = async () => {
+      try {
+        const response = await fetch(`${API_BASE_URL}/api/settings`);
+        if (response.ok) {
+          const payload = await response.json();
+          if (payload.ok && typeof payload.deliveryChargeEnabled === "boolean") {
+            setAdminDeliveryChargeEnabled(payload.deliveryChargeEnabled);
+          }
+        }
+      } catch (err) {
+        console.error("Failed to load settings in admin:", err);
+      }
+    };
+
     fetchPrices();
+    fetchSettings();
   }, [adminToken]);
 
   const handlePriceFieldChange = (itemId, val) => {
@@ -172,6 +317,39 @@ export default function AdminOrdersPage() {
   const handleLogout = () => {
     localStorage.removeItem(ADMIN_TOKEN_KEY);
     navigate("/admin/login", { replace: true });
+  };
+
+  const handleToggleDeliveryCharge = async () => {
+    setUpdatingDeliverySetting(true);
+    try {
+      const nextVal = !adminDeliveryChargeEnabled;
+      const response = await fetch(`${API_BASE_URL}/api/admin/settings/delivery`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${adminToken}`
+        },
+        body: JSON.stringify({ enabled: nextVal })
+      });
+
+      const payload = await response.json();
+      if (response.status === 401 || response.status === 403) {
+        localStorage.removeItem(ADMIN_TOKEN_KEY);
+        navigate("/admin/login", { replace: true });
+        return;
+      }
+      if (!response.ok || !payload.ok) {
+        alert(payload.message || "Failed to update delivery setting");
+        return;
+      }
+
+      setAdminDeliveryChargeEnabled(nextVal);
+    } catch (err) {
+      console.error(err);
+      alert("An error occurred while updating the delivery setting.");
+    } finally {
+      setUpdatingDeliverySetting(false);
+    }
   };
 
   const setInvoiceRef = (orderId) => (node) => {
@@ -288,6 +466,125 @@ export default function AdminOrdersPage() {
           Manage Prices
         </button>
       </div>
+
+      {/* Push Notifications Subscription Panel */}
+      <motion.div
+        initial={{ opacity: 0, y: -10 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="mb-8 overflow-hidden rounded-3xl border border-truffle/10 bg-white/75 p-6 shadow-luxe backdrop-blur-xl md:p-8"
+      >
+        <div className="flex flex-col gap-6 md:flex-row md:items-center md:justify-between">
+          <div className="flex items-start gap-4">
+            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-cocoa/10 text-cocoa">
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="h-6 w-6">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M14.857 17.082a23.848 23.848 0 0 0 5.454-1.31A8.967 8.967 0 0 1 18 9.75V9A6 6 0 0 0 6 9v.75a8.967 8.967 0 0 1-2.312 6.022c1.733.64 3.56 1.085 5.455 1.31m5.714 0a24.255 24.255 0 0 1-5.714 0m5.714 0a3 3 0 1 1-5.714 0M3.124 7.5A8.969 8.969 0 0 1 5.292 3m13.416 0a8.969 8.969 0 0 1 2.168 4.5" />
+              </svg>
+            </div>
+            <div>
+              <h2 className="font-display text-2xl text-espresso">Order Push Notifications</h2>
+              <p className="mt-1 text-sm text-truffle/70">
+                Receive real-time push alerts on your phone or desktop the instant a customer places a new order.
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-3 self-start md:self-auto">
+            {subStatus === "loading" && (
+              <span className="text-xs uppercase tracking-widest text-truffle/50 animate-pulse font-semibold">Updating...</span>
+            )}
+            
+            {subStatus === "subscribed" && (
+              <div className="flex items-center gap-4">
+                <div className="flex items-center gap-2 rounded-full bg-emerald-50 border border-emerald-200 px-4 py-1.5 text-xs font-semibold text-emerald-800">
+                  <span className="h-2 w-2 rounded-full bg-emerald-500 animate-ping" />
+                  Active
+                </div>
+                <button
+                  type="button"
+                  onClick={handleUnsubscribe}
+                  className="rounded-xl border border-red-200 bg-red-50/50 hover:bg-red-50 px-4 py-2 text-xs font-bold uppercase tracking-wider text-red-700 transition"
+                >
+                  Mute Alerts
+                </button>
+              </div>
+            )}
+
+            {subStatus === "unsubscribed" && (
+              <button
+                type="button"
+                onClick={handleSubscribe}
+                className="rounded-xl bg-cocoa hover:bg-cocoa/90 px-6 py-2.5 text-xs font-bold uppercase tracking-widest text-white shadow-md transition"
+              >
+                Enable Notifications
+              </button>
+            )}
+
+            {subStatus === "permission_denied" && (
+              <div className="flex flex-col gap-2 md:items-end">
+                <div className="rounded-full bg-amber-50 border border-amber-200 px-4 py-1.5 text-xs font-semibold text-amber-800">
+                  Permission Denied
+                </div>
+                <span className="text-[10px] text-truffle/60 text-left md:text-right max-w-xs">
+                  Please click the lock icon in your browser address bar and change notifications permission to "Allow", then click "Enable Notifications" again.
+                </span>
+              </div>
+            )}
+
+            {subStatus === "unsupported" && (
+              <div className="rounded-full bg-truffle/10 border border-truffle/20 px-4 py-1.5 text-xs font-semibold text-truffle/60">
+                Not Supported in this Browser
+              </div>
+            )}
+          </div>
+        </div>
+      </motion.div>
+
+      {/* Delivery Charge Toggle Card */}
+      <motion.div
+        initial={{ opacity: 0, y: -10 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="mb-8 overflow-hidden rounded-3xl border border-truffle/10 bg-white/75 p-6 shadow-luxe backdrop-blur-xl md:p-8"
+      >
+        <div className="flex flex-col gap-6 md:flex-row md:items-center md:justify-between">
+          <div className="flex items-start gap-4">
+            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-cocoa/10 text-cocoa">
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="h-6 w-6">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 18.75a1.5 1.5 0 0 1-3 0m3 0a1.5 1.5 0 0 0-3 0m3 0h6m-9 0H3.375a1.125 1.125 0 0 1-1.125-1.125V14.25m17.25 4.5a1.5 1.5 0 0 1-3 0m3 0a1.5 1.5 0 0 0-3 0m3 0h1.125c.621 0 1.129-.504 1.129-1.125V11.25c0-.447-.269-.852-.685-1.025l-2.636-1.055a.75.75 0 0 0-.586.04L16.5 10.5m-2.25 8.25h-5.25m9-6h-9m9 0V9a2.25 2.25 0 0 0-2.25-2.25h-9a2.25 2.25 0 0 0-2.25 2.25v3m9-6h.75a2.25 2.25 0 0 1 2.25 2.25v1.5" />
+              </svg>
+            </div>
+            <div>
+              <h2 className="font-display text-2xl text-espresso">Delivery Charges (Flat ₹50)</h2>
+              <p className="mt-1 text-sm text-truffle/70">
+                Enable or disable shipping fees dynamically. If disabled, all customers receive free delivery instantly.
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-4 self-start md:self-auto">
+            {updatingDeliverySetting && (
+              <span className="text-xs uppercase tracking-widest text-truffle/50 animate-pulse font-semibold">Updating...</span>
+            )}
+            
+            <button
+              type="button"
+              onClick={handleToggleDeliveryCharge}
+              disabled={updatingDeliverySetting}
+              className={`relative inline-flex h-7 w-12 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out outline-none ${
+                adminDeliveryChargeEnabled ? "bg-cocoa animate-pulse" : "bg-truffle/20"
+              }`}
+            >
+              <span
+                className={`pointer-events-none inline-block h-6 w-6 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
+                  adminDeliveryChargeEnabled ? "translate-x-5" : "translate-x-0"
+                }`}
+              />
+            </button>
+            <span className="text-sm font-semibold uppercase tracking-wider text-espresso w-20">
+              {adminDeliveryChargeEnabled ? "Enabled" : "Disabled"}
+            </span>
+          </div>
+        </div>
+      </motion.div>
 
       {error ? <p className="mb-4 text-red-700">{error}</p> : null}
 

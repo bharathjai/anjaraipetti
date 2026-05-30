@@ -42,7 +42,7 @@ function CartLogoBackground() {
   );
 }
 
-export default function CartPage({ cartItems, cartQuantity, onUpdateQuantity }) {
+export default function CartPage({ cartItems, cartQuantity, onUpdateQuantity, deliveryChargeEnabled = true }) {
   if (!cartItems || cartItems.length === 0) {
     return (
       <section className="relative isolate mx-auto flex min-h-[70vh] w-full max-w-4xl items-center justify-center overflow-hidden px-6 py-20 md:px-10">
@@ -73,7 +73,7 @@ export default function CartPage({ cartItems, cartQuantity, onUpdateQuantity }) 
 
   const subtotal = cartItems.reduce((sum, item) => sum + item.product.price * item.quantity, 0);
   const hasTestProduct = cartItems.some(item => item.product.id === "test-product");
-  const deliveryFee = hasTestProduct ? 0 : (subtotal >= 299 ? 0 : 50);
+  const deliveryFee = !deliveryChargeEnabled || hasTestProduct ? 0 : (subtotal >= 299 ? 0 : 50);
   const total = subtotal + deliveryFee;
 
   return (
@@ -149,7 +149,7 @@ export default function CartPage({ cartItems, cartQuantity, onUpdateQuantity }) 
             </div>
             
             {/* Free Delivery Promo Bar */}
-            {!hasTestProduct && subtotal < 299 && (
+            {deliveryChargeEnabled && !hasTestProduct && subtotal < 299 && (
               <div className="rounded-xl bg-amber/5 p-3 text-[11px] leading-relaxed text-cocoa border border-amber/15">
                 Add <span className="font-bold">{formatINR(299 - subtotal)}</span> more to qualify for <span className="font-bold text-emerald-600">FREE Delivery</span>!
               </div>
@@ -163,9 +163,11 @@ export default function CartPage({ cartItems, cartQuantity, onUpdateQuantity }) 
             </div>
           </div>
           
-          <div className="mt-5 rounded-2xl bg-porcelain p-4 text-[11px] leading-relaxed text-truffle/70 border border-truffle/10">
-            📌 <strong>Delivery Policy:</strong> Free delivery on orders above ₹299. Orders below ₹299 incur a flat ₹50 shipping fee.
-          </div>
+          {deliveryChargeEnabled && (
+            <div className="mt-5 rounded-2xl bg-porcelain p-4 text-[11px] leading-relaxed text-truffle/70 border border-truffle/10">
+              📌 <strong>Delivery Policy:</strong> Free delivery on orders above ₹299. Orders below ₹299 incur a flat ₹50 shipping fee.
+            </div>
+          )}
 
           <Link
             to="/checkout"
