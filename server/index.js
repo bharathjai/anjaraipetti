@@ -194,6 +194,13 @@ async function getGmailAccessToken() {
   return access_token;
 }
 
+function escapeHTML(str) {
+  if (!str) return "";
+  return String(str).replace(/[&<>'"]/g, 
+    tag => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[tag] || tag)
+  );
+}
+
 async function sendInvoiceEmail(order) {
   const oauthReady =
     process.env.GMAIL_OAUTH_CLIENT_ID &&
@@ -257,7 +264,7 @@ async function sendInvoiceEmail(order) {
     
     <!-- Body -->
     <div style="padding: 30px;">
-      <h2 style="margin: 0 0 16px 0; font-size: 20px; color: #6f3f1e;">Thank you for your order, ${order.customer.name}!</h2>
+      <h2 style="margin: 0 0 16px 0; font-size: 20px; color: #6f3f1e;">Thank you for your order, ${escapeHTML(order.customer.name)}!</h2>
       <p style="margin: 0 0 20px 0; font-size: 14px; line-height: 1.6; color: #4b2c1a;">
         Your support keeps tradition alive! We are preparing your fresh, slow-roasted masala blend with care. Below are your order details.
       </p>
@@ -290,7 +297,7 @@ async function sendInvoiceEmail(order) {
       <table style="width: 100%; border-collapse: collapse; font-size: 13px; margin-bottom: 24px;">
         ${order.items.map(item => `
         <tr style="border-bottom: 1px solid #f4eee4;">
-          <td style="padding: 10px 0; color: #2a1a12; font-weight: bold;">${item.productName} <span style="font-weight: normal; color: #4b2c1a;">(x${item.quantity})</span></td>
+          <td style="padding: 10px 0; color: #2a1a12; font-weight: bold;">${escapeHTML(item.productName)} <span style="font-weight: normal; color: #4b2c1a;">(x${item.quantity})</span></td>
           <td style="padding: 10px 0; text-align: right; color: #2a1a12; font-weight: bold;">Rs. ${Number(item.subtotal).toFixed(2)}</td>
         </tr>
         `).join('')}
@@ -701,7 +708,7 @@ async function createFinalOrder({ items, customer, address, payment }) {
   const deliveryFee = hasTestProduct ? 0 : (subtotal >= 299 ? 0 : 50);
   const grandTotal = subtotal + deliveryFee;
   const total = grandTotal;
-  const orderId = `ANJ${Date.now().toString().slice(-8)}`;
+  const orderId = `ANJ-${crypto.randomBytes(5).toString("hex").toUpperCase()}`;
 
   const order = {
     orderId,
@@ -763,28 +770,11 @@ app.post("/api/admin/login", (req, res) => {
   });
 });
 
-app.post("/api/orders", async (req, res) => {
-  const { errors, items, method } = validatePayload(req.body);
-  if (Object.keys(errors).length > 0) {
-    return res.status(400).json({ ok: false, errors });
-  }
-
-  try {
-    const order = await createFinalOrder({
-      items,
-      customer: req.body.customer,
-      address: req.body.address,
-      payment: {
-        method,
-        status: method === "cod" ? "Pay on delivery" : "Paid"
-      }
-    });
-
-    return res.json({ ok: true, order });
-  } catch (error) {
-    console.error(error);
-    return res.status(500).json({ ok: false, message: "Unable to place order" });
-  }
+app.post("/api/orders", (req, res) => {
+  return res.status(400).json({
+    ok: false,
+    message: "Cash on Delivery (COD) is disabled. Orders can only be placed through secure verified Razorpay confirmation."
+  });
 });
 
 app.post("/api/payments/razorpay/order", async (req, res) => {
