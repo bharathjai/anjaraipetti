@@ -261,8 +261,8 @@ export default function CheckoutPage({ cartItems, onClearCart }) {
     showConfirmation(result);
   };
 
-  // Runs BEFORE animation — throws if form is invalid
-  const validateForm = () => {
+  // Runs BEFORE animation — throws on validation or Razorpay failure
+  const handleValidateCheckout = async () => {
     setServerError("");
     const nextErrors = validate();
     setErrors(nextErrors);
@@ -270,25 +270,39 @@ export default function CheckoutPage({ cartItems, onClearCart }) {
       focusFirstInvalidField(nextErrors);
       throw new Error("validation");
     }
+
+    if (form.paymentMethod === "razorpay") {
+      setIsSubmitting(true);
+      isAnimating.current = true; // block redirect guard
+      try {
+        await placeRazorpayOrder();
+      } catch (error) {
+        isAnimating.current = false;
+        setServerError(error.message || "Unable to process payment right now. Please try again.");
+        throw error;
+      } finally {
+        setIsSubmitting(false);
+      }
+    }
   };
 
-  // Runs DURING animation — throws on API/network failure
-  const placeOrder = async () => {
-    isAnimating.current = true;   // block the redirect guard
-    setIsSubmitting(true);
-    try {
-      if (form.paymentMethod === "cod") {
+  // Runs DURING animation — throws on COD API/network failure
+  const handleExecuteCheckout = async () => {
+    if (form.paymentMethod === "cod") {
+      isAnimating.current = true; // block redirect guard
+      setIsSubmitting(true);
+      try {
         await placeCodOrder();
-      } else {
-        await placeRazorpayOrder();
+      } catch (error) {
+        isAnimating.current = false;
+        setServerError(error.message || "Unable to place order right now. Please try again.");
+        throw error;
+      } finally {
+        setIsSubmitting(false);
       }
-    } catch (error) {
-      isAnimating.current = false;
-      setServerError(error.message || "Unable to place order right now. Please try again.");
-      throw error;
-    } finally {
-      setIsSubmitting(false);
     }
+    // For Razorpay, order was already placed and verified during validation phase.
+    // So just resolve immediately to let the truck animation play beautifully!
   };
 
 
@@ -456,8 +470,8 @@ export default function CheckoutPage({ cartItems, onClearCart }) {
               label={form.paymentMethod === "cod" ? "Place COD Order" : "Pay with Razorpay"}
               successLabel="Order Placed"
               disabled={isSubmitting}
-              onValidate={validateForm}
-              onClick={placeOrder}
+              onValidate={handleValidateCheckout}
+              onClick={handleExecuteCheckout}
               onDone={handleAnimationDone}
             />
           </div>
