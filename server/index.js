@@ -893,6 +893,11 @@ app.post("/api/payments/razorpay/order", async (req, res) => {
     totalAmount += product.price * quantity;
   }
 
+  // Calculate and add delivery charge!
+  const hasTestProduct = items.some(item => item.productId === "test-product" || item.productId.startsWith("test-product"));
+  const deliveryFee = hasTestProduct ? 0 : (totalAmount >= 299 ? 0 : 50);
+  totalAmount += deliveryFee;
+
   try {
     const amount = Math.round(totalAmount * 100);
     const razorpayOrder = await razorpayClient.orders.create({
