@@ -42,6 +42,7 @@ export default function CheckoutPage({ cartItems, onClearCart }) {
   const isAnimating   = useRef(false); // true while truck animation is running
   const isConfirmed   = useRef(false); // true after animation completes to bypass redirect guard
   const isAnimationFinished = useRef(false); // true after GSAP animation completes
+  const pendingRazorpayResponse = useRef(null);
   const [form, setForm] = useState(initialForm);
   const [errors, setErrors] = useState({});
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -221,35 +222,9 @@ export default function CheckoutPage({ cartItems, onClearCart }) {
         theme: {
           color: "#8a4a22"
         },
-        handler: async (response) => {
-          try {
-            const confirmResponse = await fetch(
-              `${API_BASE_URL}/api/orders/razorpay/confirm`,
-              {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                  items: cartItems.map((item) => ({ productId: item.product.id, quantity: item.quantity })),
-                  customer,
-                  address,
-                  payment: {
-                    razorpayOrderId: response.razorpay_order_id,
-                    razorpayPaymentId: response.razorpay_payment_id,
-                    razorpaySignature: response.razorpay_signature
-                  }
-                })
-              }
-            );
-            const confirmPayload = await confirmResponse.json();
-            if (!confirmResponse.ok || !confirmPayload.ok) {
-              const errorMsg = confirmPayload.error || confirmPayload.message || "Payment verification failed";
-              reject(new Error(errorMsg));
-              return;
-            }
-            resolve(confirmPayload.order.orderId);
-          } catch (error) {
-            reject(new Error(error.message || "Unable to verify Razorpay payment"));
-          }
+        handler: (response) => {
+          // Resolve immediately when user completes payment!
+          resolve(response);
         },
         modal: {
           ondismiss: () => reject(new Error("Payment popup closed"))
@@ -258,7 +233,7 @@ export default function CheckoutPage({ cartItems, onClearCart }) {
       rz.open();
     });
 
-    showConfirmation(result);
+    pendingRazorpayResponse.current = result;
   };
 
   // Runs BEFORE animation — throws on validation or Razorpay failure
@@ -286,23 +261,50 @@ export default function CheckoutPage({ cartItems, onClearCart }) {
     }
   };
 
-  // Runs DURING animation — throws on COD API/network failure
+  // Runs DURING animation — throws on payment verification or COD order placement failure
   const handleExecuteCheckout = async () => {
-    if (form.paymentMethod === "cod") {
-      isAnimating.current = true; // block redirect guard
-      setIsSubmitting(true);
-      try {
+    isAnimating.current = true; // block redirect guard
+    setIsSubmitting(true);
+    try {
+      if (form.paymentMethod === "cod") {
         await placeCodOrder();
-      } catch (error) {
-        isAnimating.current = false;
-        setServerError(error.message || "Unable to place order right now. Please try again.");
-        throw error;
-      } finally {
-        setIsSubmitting(false);
+      } else {
+        // For Razorpay, the payment is complete! Verify signature and create invoice in the background during the animation
+        const response = pendingRazorpayResponse.current;
+        if (!response) throw new Error("Payment signature missing");
+
+        const confirmResponse = await fetch(
+          `${API_BASE_URL}/api/orders/razorpay/confirm`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              items: cartItems.map((item) => ({ productId: item.product.id, quantity: item.quantity })),
+              customer,
+              address,
+              payment: {
+                razorpayOrderId: response.razorpay_order_id,
+                razorpayPaymentId: response.razorpay_payment_id,
+                razorpaySignature: response.razorpay_signature
+              }
+            })
+          }
+        );
+
+        const confirmPayload = await confirmResponse.json();
+        if (!confirmResponse.ok || !confirmPayload.ok) {
+          const errorMsg = confirmPayload.error || confirmPayload.message || "Payment verification failed";
+          throw new Error(errorMsg);
+        }
+        showConfirmation(confirmPayload.order.orderId);
       }
+    } catch (error) {
+      isAnimating.current = false;
+      setServerError(error.message || "Unable to place order right now. Please try again.");
+      throw error;
+    } finally {
+      setIsSubmitting(false);
     }
-    // For Razorpay, order was already placed and verified during validation phase.
-    // So just resolve immediately to let the truck animation play beautifully!
   };
 
 
