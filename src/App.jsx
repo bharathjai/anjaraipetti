@@ -145,51 +145,41 @@ export default function App() {
     <main className="relative min-h-screen overflow-x-clip bg-porcelain text-espresso">
       <AmbientSpices />
       <NavBar cartQuantity={cartQuantity} />
-      <AnimatePresence mode="wait">
-        <motion.div
-          key={location.pathname}
-          initial={{ opacity: 0, y: 18, scale: 0.99 }}
-          animate={{ opacity: 1, y: 0, scale: 1 }}
-          exit={{ opacity: 0, y: 12, scale: 0.995 }}
-          transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
-        >
-          <Routes location={location}>
-            <Route path="/" element={<LandingPage products={products} />} />
-            <Route path="/product" element={<ProductsPage products={products} />} />
-            <Route
-              path="/product/:productId"
-              element={
-                <ProductPage
-                  products={products}
-                  ingredients={ingredients}
-                  onAddToCart={addToCart}
-                  availableMap={inventoryMap}
-                  cartItems={cartItems}
-                />
-              }
+      <Routes>
+        <Route path="/" element={<LandingPage products={products} />} />
+        <Route path="/product" element={<ProductsPage products={products} />} />
+        <Route
+          path="/product/:productId"
+          element={
+            <ProductPage
+              products={products}
+              ingredients={ingredients}
+              onAddToCart={addToCart}
+              availableMap={inventoryMap}
+              cartItems={cartItems}
             />
-            <Route
-              path="/cart"
-              element={
-                <CartPage
-                  cartItems={cartItems}
-                  cartQuantity={cartQuantity}
-                  onUpdateQuantity={updateCartQuantity}
-                />
-              }
+          }
+        />
+        <Route
+          path="/cart"
+          element={
+            <CartPage
+              cartItems={cartItems}
+              cartQuantity={cartQuantity}
+              onUpdateQuantity={updateCartQuantity}
             />
-            <Route
-              path="/checkout"
-              element={<CheckoutPage cartItems={cartItems} onClearCart={clearCart} />}
-            />
-            <Route path="/order/:orderId" element={<OrderSuccessPage />} />
-            <Route path="/recipe/:productId" element={<RecipePage />} />
-            <Route path="/admin/login" element={<AdminLoginPage />} />
-            <Route path="/admin/orders" element={<AdminOrdersPage />} />
-            <Route path="*" element={<Navigate to="/" replace />} />
-          </Routes>
-        </motion.div>
-      </AnimatePresence>
+          }
+        />
+        <Route
+          path="/checkout"
+          element={<CheckoutPage cartItems={cartItems} onClearCart={clearCart} />}
+        />
+        <Route path="/order/:orderId" element={<OrderSuccessPage />} />
+        <Route path="/recipe/:productId" element={<RecipePage />} />
+        <Route path="/admin/login" element={<AdminLoginPage />} />
+        <Route path="/admin/orders" element={<AdminOrdersPage />} />
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Routes>
       <Footer />
     </main>
   );
