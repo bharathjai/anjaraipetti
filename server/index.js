@@ -3,6 +3,7 @@ import cors from "cors";
 import express from "express";
 import fs from "node:fs";
 import { createServer } from "node:http";
+import https from "node:https";
 import crypto from "node:crypto";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -949,39 +950,39 @@ app.get("/api/orders/:orderId/invoice", async (req, res) => {
   }
 });
 
-app.get("/api/pincode/:pincode", async (req, res) => {
+app.get("/api/pincode/:pincode", (req, res) => {
   const pin = req.params.pincode;
   if (!/^\d{6}$/.test(pin)) {
     return res.status(400).json({ ok: false, message: "Enter valid 6-digit pincode" });
   }
 
-  // Backup active setting and temporarily disable strict TLS checks to fetch from expired cert
-  const originalRejectValue = process.env.NODE_TLS_REJECT_UNAUTHORIZED;
-  process.env.NODE_TLS_REJECT_UNAUTHORIZED = "0";
+  const options = {
+    hostname: "api.postalpincode.in",
+    path: `/pincode/${pin}`,
+    method: "GET",
+    rejectUnauthorized: false // Bypasses expired cert warning securely ONLY for this outbound India Post call
+  };
 
-  try {
-    const response = await fetch(`https://api.postalpincode.in/pincode/${pin}`);
-    
-    // Immediately restore setting
-    if (originalRejectValue === undefined) {
-      delete process.env.NODE_TLS_REJECT_UNAUTHORIZED;
-    } else {
-      process.env.NODE_TLS_REJECT_UNAUTHORIZED = originalRejectValue;
-    }
+  const request = https.request(options, (response) => {
+    let rawData = "";
+    response.on("data", (chunk) => { rawData += chunk; });
+    response.on("end", () => {
+      try {
+        const data = JSON.parse(rawData);
+        return res.json({ ok: true, data });
+      } catch (parseError) {
+        console.error("Pincode JSON parse error:", parseError);
+        return res.status(500).json({ ok: false, message: "Failed to parse postal details" });
+      }
+    });
+  });
 
-    if (!response.ok) throw new Error("India Post API failed");
-    const data = await response.json();
-    return res.json({ ok: true, data });
-  } catch (error) {
-    // Restore on catch block too just in case
-    if (originalRejectValue === undefined) {
-      delete process.env.NODE_TLS_REJECT_UNAUTHORIZED;
-    } else {
-      process.env.NODE_TLS_REJECT_UNAUTHORIZED = originalRejectValue;
-    }
-    console.error("Pincode proxy error:", error);
+  request.on("error", (error) => {
+    console.error("Pincode network error:", error);
     return res.status(500).json({ ok: false, message: "Unable to retrieve postal details" });
-  }
+  });
+
+  request.end();
 });
 
 if (fs.existsSync(path.join(distPath, "index.html"))) {
