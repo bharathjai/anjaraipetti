@@ -22,8 +22,7 @@ export default function InvoiceDocument({ order }) {
           <div className="mb-6 h-14 w-40 opacity-90 drop-shadow-sm">
             <BrandHatMark />
           </div>
-          <p className="text-[0.65rem] font-bold uppercase tracking-[0.3em] text-cocoa/70">Namma Veetu</p>
-          <p className="mt-1 font-display text-4xl leading-normal text-espresso drop-shadow-sm">Anjaraipetti</p>
+          <p className="mt-1 font-display text-4xl leading-normal text-espresso drop-shadow-sm">Namma Veetu Anjaraipetti</p>
           <p className="text-sm font-medium tracking-wide text-truffle/80">Premium Kitchen Essentials</p>
           <div className="mt-3 space-y-0.5 text-[11px] text-truffle/60">
             <p>FSSAI Reg. No: 22426425000511</p>

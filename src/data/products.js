@@ -1,7 +1,7 @@
 export const products = [
   {
     id: "sambar-masala",
-    name: "Anjaraipetti Sambar Masala",
+    name: "Namma Veetu Anjaraipetti Sambar Masala",
     price: 1,
     size: "50g Pack",
     subtitle: "Authentic Homemade Taste",
@@ -18,7 +18,7 @@ export const products = [
   },
   {
     id: "biryani-masala",
-    name: "Anjaraipetti Biriyani Masala",
+    name: "Namma Veetu Anjaraipetti Biriyani Masala",
     price: 75,
     size: "50g Pack",
     subtitle: "Authentic Homemade Taste",
@@ -35,7 +35,7 @@ export const products = [
   },
   {
     id: "pepper-powder",
-    name: "Anjaraipetti Pepper Powder",
+    name: "Namma Veetu Anjaraipetti Pepper Powder",
     price: 99,
     size: "50g Pack",
     subtitle: "Authentic Homemade Taste",
@@ -52,7 +52,7 @@ export const products = [
   },
   {
     id: "parupu-podi",
-    name: "Anjaraipetti Parupu Podi",
+    name: "Namma Veetu Anjaraipetti Parupu Podi",
     price: 49,
     size: "50g Pack",
     subtitle: "Authentic Homemade Taste",
@@ -69,7 +69,7 @@ export const products = [
   },
   {
     id: "fish-fry-masala",
-    name: "Anjaraipetti Fish Fry Masala",
+    name: "Namma Veetu Anjaraipetti Fish Fry Masala",
     price: 49,
     size: "50g Pack",
     subtitle: "Authentic Homemade Taste",
@@ -86,7 +86,7 @@ export const products = [
   },
   {
     id: "tandoori-masala",
-    name: "Anjaraipetti Tandoori Masala",
+    name: "Namma Veetu Anjaraipetti Tandoori Masala",
     price: 65,
     size: "50g Pack",
     subtitle: "Authentic Homemade Taste",
@@ -103,7 +103,7 @@ export const products = [
   },
   {
     id: "mutton-masala",
-    name: "Anjaraipetti Mutton Masala",
+    name: "Namma Veetu Anjaraipetti Mutton Masala",
     price: 85,
     size: "50g Pack",
     subtitle: "Authentic Homemade Taste",
@@ -120,7 +120,7 @@ export const products = [
   },
   {
     id: "chicken-masala",
-    name: "Anjaraipetti Chicken Masala",
+    name: "Namma Veetu Anjaraipetti Chicken Masala",
     price: 85,
     size: "50g Pack",
     subtitle: "Authentic Homemade Taste",
@@ -137,7 +137,7 @@ export const products = [
   },
   {
     id: "kolambu-powder",
-    name: "Anjaraipetti Kolambu / Chilly Powder",
+    name: "Namma Veetu Anjaraipetti Kolambu / Chilly Powder",
     price: 79,
     size: "100g Pack",
     subtitle: "Authentic Homemade Taste",
@@ -153,7 +153,7 @@ export const products = [
   },
   {
     id: "idly-podi",
-    name: "Anjaraipetti Idly Podi",
+    name: "Namma Veetu Anjaraipetti Idly Podi",
     price: 49,
     size: "100g Pack",
     subtitle: "Authentic Homemade Taste",
@@ -169,7 +169,7 @@ export const products = [
   },
   {
     id: "garam-masala",
-    name: "Anjaraipetti Garam Masala",
+    name: "Namma Veetu Anjaraipetti Garam Masala",
     price: 85,
     size: "50g Pack",
     subtitle: "Authentic Homemade Taste",
@@ -186,7 +186,7 @@ export const products = [
   },
   {
     id: "coriander-powder",
-    name: "Anjaraipetti Coriander Powder",
+    name: "Namma Veetu Anjaraipetti Coriander Powder",
     price: 49,
     size: "50g Pack",
     subtitle: "Authentic Homemade Taste",
@@ -218,7 +218,7 @@ export const products = [
   },
   {
     id: "test-product",
-    name: "Anjaraipetti Test Product",
+    name: "Namma Veetu Anjaraipetti Test Product",
     price: 1,
     size: "1g Pack",
     subtitle: "Testing Product",
