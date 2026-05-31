@@ -406,7 +406,6 @@ export default function CheckoutPage({ cartItems, onClearCart, deliveryChargeEna
                   <span className="w-2.5 h-2.5 rounded-full bg-cocoa mr-3 animate-pulse"></span>
                   Razorpay (UPI/Card/Netbanking)
                 </div>
-                <span className="text-xs font-bold uppercase tracking-wider bg-cocoa/20 px-2 py-0.5 rounded text-cocoa">Active</span>
               </div>
             </div>
           </section>

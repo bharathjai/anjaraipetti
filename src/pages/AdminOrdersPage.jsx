@@ -729,54 +729,12 @@ export default function AdminOrdersPage() {
           </div>
         </div>
 
-        {/* Service Worker Debug Logger Panel */}
-        <div className="mt-6 flex flex-wrap items-center gap-x-6 gap-y-2 rounded-2xl bg-cocoa/5 p-4 text-xs font-semibold text-truffle">
-          <div className="flex items-center gap-1.5">
-            <span className={`h-2.5 w-2.5 rounded-full ${swStatus.active ? "bg-emerald-500 animate-pulse" : "bg-amber-400"}`} />
-            <span>Service Worker: {swStatus.active ? "Active & Listening" : "Inactive (Send Ping or Refresh Page)"}</span>
-          </div>
-          {swStatus.active && (
-            <>
-              <div className="flex items-center gap-1.5 border-l border-truffle/20 pl-6">
-                <span className={`h-2 w-2 rounded-full ${swStatus.messagingInitialized ? "bg-emerald-500" : "bg-amber-400 animate-pulse"}`} />
-                <span>FCM Web SDK: {swStatus.messagingInitialized ? "Initialized" : "Uninitialized"}</span>
-              </div>
-              <div className="flex items-center gap-1.5 border-l border-truffle/20 pl-6 text-truffle/60">
-                <span>Last Ping Response: {swStatus.lastPing ? new Date(swStatus.lastPing).toLocaleTimeString() : "None"}</span>
-              </div>
-              <button
-                type="button"
-                onClick={() => {
-                  if (navigator.serviceWorker.controller) {
-                    navigator.serviceWorker.controller.postMessage({ type: "PING_SW" });
-                  } else {
-                    navigator.serviceWorker.ready.then((reg) => {
-                      if (reg.active) reg.active.postMessage({ type: "PING_SW" });
-                    });
-                  }
-                }}
-                className="ml-auto rounded-lg border border-cocoa/10 hover:bg-cocoa/10 px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-cocoa transition"
-              >
-                Send SW Diagnostic Ping
-              </button>
-            </>
-          )}
-        </div>
-        
         {registeredDevices.length > 0 && (
           <div className="mt-8 border-t border-truffle/10 pt-6">
             <div className="flex items-center justify-between gap-4 mb-4">
               <h3 className="text-xs font-semibold uppercase tracking-[0.2em] text-cocoa/80">
                 Registered Admin Devices ({registeredDevices.length})
               </h3>
-              <button
-                type="button"
-                onClick={handleSendTestNotification}
-                disabled={sendingTest}
-                className="rounded-xl border border-cocoa/20 bg-cocoa/5 hover:bg-cocoa/10 px-4 py-2 text-xs font-bold uppercase tracking-wider text-cocoa transition disabled:opacity-50"
-              >
-                {sendingTest ? "Sending Test..." : "Send Test Push Alert"}
-              </button>
             </div>
             <div className="overflow-x-auto">
               <table className="w-full text-left text-xs border-collapse">
