@@ -69,6 +69,7 @@ export default function AdminOrdersPage() {
   const [registeredDevices, setRegisteredDevices] = useState([]);
   const [loadingDevices, setLoadingDevices] = useState(false);
   const [sendingTest, setSendingTest] = useState(false);
+  const [swStatus, setSwStatus] = useState({ active: false, messagingInitialized: false, lastPing: null });
 
   const fetchRegisteredDevices = async () => {
     if (!adminToken) return;
@@ -159,6 +160,28 @@ export default function AdminOrdersPage() {
 
         const reg = await navigator.serviceWorker.register(`/firebase-messaging-sw.js?apiUrl=${encodeURIComponent(API_BASE_URL)}`);
         if (active) setSwRegistration(reg);
+
+        // Listen for debug messages from the active Service Worker
+        const swMessageHandler = (event) => {
+          console.log("[AdminOrdersPage] Message received from Service Worker:", event.data);
+          if (event.data && event.data.type === "PONG_SW") {
+            if (active) {
+              setSwStatus({
+                active: true,
+                messagingInitialized: event.data.messagingInitialized,
+                lastPing: event.data.time
+              });
+            }
+          }
+        };
+        navigator.serviceWorker.addEventListener("message", swMessageHandler);
+
+        // Ping the service worker once it is fully ready
+        navigator.serviceWorker.ready.then((registration) => {
+          if (registration.active) {
+            registration.active.postMessage({ type: "PING_SW" });
+          }
+        });
 
         const savedPref = localStorage.getItem("anj_admin_subscribed");
         if (savedPref === "true" && Notification.permission === "granted") {
@@ -704,6 +727,40 @@ export default function AdminOrdersPage() {
               </div>
             )}
           </div>
+        </div>
+
+        {/* Service Worker Debug Logger Panel */}
+        <div className="mt-6 flex flex-wrap items-center gap-x-6 gap-y-2 rounded-2xl bg-cocoa/5 p-4 text-xs font-semibold text-truffle">
+          <div className="flex items-center gap-1.5">
+            <span className={`h-2.5 w-2.5 rounded-full ${swStatus.active ? "bg-emerald-500 animate-pulse" : "bg-amber-400"}`} />
+            <span>Service Worker: {swStatus.active ? "Active & Listening" : "Inactive (Send Ping or Refresh Page)"}</span>
+          </div>
+          {swStatus.active && (
+            <>
+              <div className="flex items-center gap-1.5 border-l border-truffle/20 pl-6">
+                <span className={`h-2 w-2 rounded-full ${swStatus.messagingInitialized ? "bg-emerald-500" : "bg-amber-400 animate-pulse"}`} />
+                <span>FCM Web SDK: {swStatus.messagingInitialized ? "Initialized" : "Uninitialized"}</span>
+              </div>
+              <div className="flex items-center gap-1.5 border-l border-truffle/20 pl-6 text-truffle/60">
+                <span>Last Ping Response: {swStatus.lastPing ? new Date(swStatus.lastPing).toLocaleTimeString() : "None"}</span>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  if (navigator.serviceWorker.controller) {
+                    navigator.serviceWorker.controller.postMessage({ type: "PING_SW" });
+                  } else {
+                    navigator.serviceWorker.ready.then((reg) => {
+                      if (reg.active) reg.active.postMessage({ type: "PING_SW" });
+                    });
+                  }
+                }}
+                className="ml-auto rounded-lg border border-cocoa/10 hover:bg-cocoa/10 px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-cocoa transition"
+              >
+                Send SW Diagnostic Ping
+              </button>
+            </>
+          )}
         </div>
         
         {registeredDevices.length > 0 && (

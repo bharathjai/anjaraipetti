@@ -34,21 +34,23 @@ async function initializeFirebaseInWorker() {
       firebase.initializeApp(config);
       const messaging = firebase.messaging();
       
-      // Listen for background messages
+      // Listen for background messages via Firebase SDK
       messaging.onBackgroundMessage((payload) => {
-        console.log("[firebase-messaging-sw.js] Background message received:", payload);
+        console.log("[firebase-messaging-sw.js] onBackgroundMessage() triggered!", payload);
         
-        // Customize background notification if needed
-        const notificationTitle = payload.notification?.title || "New Order Received";
+        const notificationTitle = payload.notification?.title || payload.data?.title || "New Order Received";
         const notificationOptions = {
-          body: payload.notification?.body || "A new order has been placed.",
+          body: payload.notification?.body || payload.data?.body || "A new order has been placed.",
           icon: "/favicon.ico",
           badge: "/favicon.ico",
+          tag: "new-order-alert",
           data: {
             link: payload.data?.link || payload.webpush?.fcmOptions?.link || "/admin/orders"
-          }
+          },
+          vibrate: [200, 100, 200]
         };
 
+        console.log(`[firebase-messaging-sw.js] onBackgroundMessage calling self.registration.showNotification("${notificationTitle}")`);
         return self.registration.showNotification(notificationTitle, notificationOptions);
       });
 
@@ -62,23 +64,71 @@ async function initializeFirebaseInWorker() {
   }
 }
 
+// Fallback: Listen to the raw W3C Push API event.
+// Highly robust for Android Chrome where Firebase SDK hooks might occasionally get delayed/suspended.
+self.addEventListener("push", (event) => {
+  console.log("[firebase-messaging-sw.js] RAW PUSH EVENT RECEIVED IN SERVICE WORKER!", event);
+  
+  let payload = null;
+  if (event.data) {
+    try {
+      payload = event.data.json();
+      console.log("[firebase-messaging-sw.js] Parsed Raw Push JSON Payload:", JSON.stringify(payload, null, 2));
+    } catch (err) {
+      console.warn("[firebase-messaging-sw.js] Raw push data payload is not JSON. Text data:", event.data.text());
+    }
+  }
+
+  // Parse fields from standard FCM format or raw push formats
+  const title = payload?.notification?.title || payload?.data?.title || "New Order Received (SW Fallback)";
+  const body = payload?.notification?.body || payload?.data?.body || "A new order has been placed.";
+  const link = payload?.data?.link || payload?.webpush?.fcmOptions?.link || "/admin/orders";
+
+  console.log(`[firebase-messaging-sw.js] Raw push listener displaying notification: "${title}"`);
+
+  const notificationOptions = {
+    body,
+    icon: "/favicon.ico",
+    badge: "/favicon.ico",
+    tag: "new-order-alert",
+    data: { link },
+    vibrate: [200, 100, 200],
+    requireInteraction: true
+  };
+
+  event.waitUntil(
+    self.registration.showNotification(title, notificationOptions)
+      .then(() => {
+        console.log("[firebase-messaging-sw.js] self.registration.showNotification succeeded.");
+      })
+      .catch((err) => {
+        console.error("[firebase-messaging-sw.js] self.registration.showNotification failed:", err);
+      })
+  );
+});
+
 // Fetch dynamic config when service worker starts
 self.addEventListener("install", (event) => {
+  console.log("[firebase-messaging-sw.js] Installing service worker...");
   self.skipWaiting();
   event.waitUntil(initializeFirebaseInWorker());
 });
 
 self.addEventListener("activate", (event) => {
+  console.log("[firebase-messaging-sw.js] Activating service worker...");
   event.waitUntil(self.clients.claim());
 });
 
 // Handle notification click and navigate to the target link
 self.addEventListener("notificationclick", (event) => {
-  console.log("[firebase-messaging-sw.js] Notification clicked:", event.notification);
+  console.log("[firebase-messaging-sw.js] Notification clicked! Event details:", event);
+  console.log("[firebase-messaging-sw.js] Notification data object:", event.notification.data);
+  
   event.notification.close();
 
   // Try to extract link, with fallback to orders page
   const targetLink = event.notification.data?.link || "/admin/orders";
+  console.log("[firebase-messaging-sw.js] Navigating client to link:", targetLink);
   
   event.waitUntil(
     self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((clientList) => {
@@ -87,14 +137,28 @@ self.addEventListener("notificationclick", (event) => {
         const clientUrl = new URL(client.url);
         const originUrl = new URL(self.location.origin);
         if (clientUrl.origin === originUrl.origin && "focus" in client) {
-          // If already open, navigate it to targetLink and focus
+          console.log("[firebase-messaging-sw.js] Found existing open tab. Navigating and focusing...");
           return client.navigate(targetLink).then((c) => c.focus());
         }
       }
       // Otherwise open a new window
       if (self.clients.openWindow) {
+        console.log("[firebase-messaging-sw.js] Opening new window for link:", targetLink);
         return self.clients.openWindow(targetLink);
       }
     })
   );
+});
+
+// Handle debug messages from the frontend to confirm SW status
+self.addEventListener("message", (event) => {
+  console.log("[firebase-messaging-sw.js] Message received from client app:", event.data);
+  if (event.data && event.data.type === "PING_SW") {
+    event.source.postMessage({
+      type: "PONG_SW",
+      status: "active",
+      messagingInitialized,
+      time: new Date().toISOString()
+    });
+  }
 });
