@@ -8,11 +8,25 @@ async function initializeFirebaseInWorker() {
   if (messagingInitialized) return;
 
   try {
+    // Extract the dynamic API base URL from the service worker URL query parameter
+    const urlParams = new URL(self.location.href).searchParams;
+    const apiUrl = urlParams.get("apiUrl") || "";
+    const fetchUrl = apiUrl ? `${apiUrl}/api/firebase-config` : "/api/firebase-config";
+
+    console.log(`[firebase-messaging-sw.js] Fetching Firebase config from: ${fetchUrl}`);
+
     // Dynamically retrieve the public Firebase credentials from our server API
-    const response = await fetch("/api/firebase-config");
+    const response = await fetch(fetchUrl);
     if (!response.ok) {
       throw new Error(`Failed to fetch Firebase config: ${response.status}`);
     }
+
+    // Explicitly validate content-type to avoid parsing HTML fallbacks as JSON
+    const contentType = response.headers.get("content-type") || "";
+    if (!contentType.includes("application/json")) {
+      throw new Error(`Expected JSON config but received content-type: ${contentType}`);
+    }
+
     const config = await response.json();
 
     // Only initialize if we got a valid configuration

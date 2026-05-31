@@ -68,6 +68,7 @@ export default function AdminOrdersPage() {
 
   const [registeredDevices, setRegisteredDevices] = useState([]);
   const [loadingDevices, setLoadingDevices] = useState(false);
+  const [sendingTest, setSendingTest] = useState(false);
 
   const fetchRegisteredDevices = async () => {
     if (!adminToken) return;
@@ -91,6 +92,30 @@ export default function AdminOrdersPage() {
     }
   };
 
+  const handleSendTestNotification = async () => {
+    if (!adminToken) return;
+    setSendingTest(true);
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/admin/notifications/test`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${adminToken}`,
+          "Content-Type": "application/json"
+        }
+      });
+      const data = await response.json();
+      if (!response.ok || !data.ok) {
+        throw new Error(data.message || "Failed to send test notification");
+      }
+      alert("Test push notification dispatched successfully! Please check your registered device(s).");
+    } catch (err) {
+      console.error("Test notification error:", err);
+      alert(err.message || "Failed to dispatch test notification.");
+    } finally {
+      setSendingTest(false);
+    }
+  };
+
   useEffect(() => {
     if (adminToken) {
       fetchRegisteredDevices();
@@ -111,14 +136,28 @@ export default function AdminOrdersPage() {
       }
 
       try {
+        console.log("[FCM Diagnostic] Starting checkSubscription...");
+        console.log("[FCM Diagnostic] Notification permission state:", Notification.permission);
+        console.log("[FCM Diagnostic] serviceWorker in navigator:", "serviceWorker" in navigator);
+        console.log("[FCM Diagnostic] Notification in window:", "Notification" in window);
+
         const { initFirebase } = await import("../config/firebase");
-        const { messaging } = await initFirebase();
+        const { messaging, config } = await initFirebase();
+        
+        console.log("[FCM Diagnostic] initFirebase returned messaging:", messaging ? "Initialized" : "Null/Falsy");
+        console.log("[FCM Diagnostic] initFirebase returned config:", config);
+
         if (!messaging) {
+          console.warn("[FCM Diagnostic] messaging is falsy. Checking browser support via isSupported()...");
+          const { isSupported } = await import("firebase/messaging");
+          const supported = await isSupported();
+          console.warn("[FCM Diagnostic] isSupported() resolved to:", supported);
+          
           if (active) setSubStatus("unsupported");
           return;
         }
 
-        const reg = await navigator.serviceWorker.register("/firebase-messaging-sw.js");
+        const reg = await navigator.serviceWorker.register(`/firebase-messaging-sw.js?apiUrl=${encodeURIComponent(API_BASE_URL)}`);
         if (active) setSwRegistration(reg);
 
         const savedPref = localStorage.getItem("anj_admin_subscribed");
@@ -139,6 +178,38 @@ export default function AdminOrdersPage() {
     };
   }, []);
 
+  useEffect(() => {
+    let unsubscribe = null;
+    const setupForegroundListener = async () => {
+      try {
+        const { initFirebase } = await import("../config/firebase");
+        const { messaging } = await initFirebase();
+        if (messaging) {
+          const { onMessage } = await import("firebase/messaging");
+          unsubscribe = onMessage(messaging, (payload) => {
+            console.log("Foreground notification received:", payload);
+            if (Notification.permission === "granted") {
+              new Notification(payload.notification?.title || "New Order Received", {
+                body: payload.notification?.body || "A new order has been placed.",
+                icon: "/favicon.ico"
+              });
+            }
+          });
+        }
+      } catch (err) {
+        console.error("Failed to setup foreground listener:", err);
+      }
+    };
+
+    if (adminToken) {
+      setupForegroundListener();
+    }
+
+    return () => {
+      if (unsubscribe) unsubscribe();
+    };
+  }, [adminToken]);
+
   const handleSubscribe = async () => {
     setSubStatus("loading");
     try {
@@ -152,17 +223,38 @@ export default function AdminOrdersPage() {
         return;
       }
 
+      console.log("[FCM Registration] Starting subscription request...");
+      console.log("[FCM Registration] Permission state:", Notification.permission);
+      console.log("[FCM Registration] serviceWorkerRegistration scope:", swRegistration.scope);
+
       const { initFirebase } = await import("../config/firebase");
       const { messaging, config } = await initFirebase();
+
+      console.log("[FCM Registration] dynamic config:", config);
+
       if (!messaging || !config?.vapidKey) {
+        console.error("[FCM Registration] Missing config details: messaging =", messaging ? "Initialized" : "Null", "vapidKey =", config?.vapidKey ? "Present" : "Missing");
         throw new Error("Firebase Messaging configuration is missing or incomplete.");
       }
 
+      console.log("[FCM Registration] Calling getToken() with VAPID Key:", config.vapidKey);
+
       const { getToken } = await import("firebase/messaging");
-      const token = await getToken(messaging, {
-        vapidKey: config.vapidKey,
-        serviceWorkerRegistration: swRegistration
-      });
+      
+      let token;
+      try {
+        token = await getToken(messaging, {
+          vapidKey: config.vapidKey,
+          serviceWorkerRegistration: swRegistration
+        });
+        console.log("[FCM Registration] Successfully generated browser token:", token);
+      } catch (tokenErr) {
+        console.error("[FCM Registration] getToken() threw an error:", tokenErr);
+        if (tokenErr.message && (tokenErr.message.includes("authentication credential") || tokenErr.message.includes("subscribe-failed"))) {
+          console.error("[FCM Registration] DIAGNOSIS: Your Google Cloud API Key restrictions do not allow 'FCM Registration API'. Go to https://console.cloud.google.com/apis/credentials?project=namma-veetu-anjaraipetti, edit your 'Browser key (auto created by Firebase)', and make sure BOTH 'Firebase Cloud Messaging API' and 'FCM Registration API' are checked in the restrictions list, then click Save!");
+        }
+        throw tokenErr;
+      }
 
       if (!token) {
         throw new Error("Could not retrieve Firebase device token.");
@@ -616,9 +708,19 @@ export default function AdminOrdersPage() {
         
         {registeredDevices.length > 0 && (
           <div className="mt-8 border-t border-truffle/10 pt-6">
-            <h3 className="text-xs font-semibold uppercase tracking-[0.2em] text-cocoa/80 mb-4">
-              Registered Admin Devices ({registeredDevices.length})
-            </h3>
+            <div className="flex items-center justify-between gap-4 mb-4">
+              <h3 className="text-xs font-semibold uppercase tracking-[0.2em] text-cocoa/80">
+                Registered Admin Devices ({registeredDevices.length})
+              </h3>
+              <button
+                type="button"
+                onClick={handleSendTestNotification}
+                disabled={sendingTest}
+                className="rounded-xl border border-cocoa/20 bg-cocoa/5 hover:bg-cocoa/10 px-4 py-2 text-xs font-bold uppercase tracking-wider text-cocoa transition disabled:opacity-50"
+              >
+                {sendingTest ? "Sending Test..." : "Send Test Push Alert"}
+              </button>
+            </div>
             <div className="overflow-x-auto">
               <table className="w-full text-left text-xs border-collapse">
                 <thead>

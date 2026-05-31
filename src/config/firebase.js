@@ -43,31 +43,37 @@ export async function getFirebaseConfig() {
   return null;
 }
 
+let initPromise = null;
+
 export async function initFirebase() {
-  if (firebaseApp) return { app: firebaseApp, messaging: fcmMessaging, config: firebaseConfig };
+  if (initPromise) return initPromise;
 
-  const config = await getFirebaseConfig();
-  if (!config || !config.apiKey) {
-    console.warn("Firebase config not available. Push notifications will be disabled.");
-    return { app: null, messaging: null, config: null };
-  }
-
-  try {
-    if (getApps().length === 0) {
-      firebaseApp = initializeApp(config);
-    } else {
-      firebaseApp = getApp();
+  initPromise = (async () => {
+    const config = await getFirebaseConfig();
+    if (!config || !config.apiKey) {
+      console.warn("Firebase config not available. Push notifications will be disabled.");
+      return { app: null, messaging: null, config: null };
     }
 
-    const messagingSupported = await isSupported();
-    if (messagingSupported) {
-      fcmMessaging = getMessaging(firebaseApp);
-    } else {
-      console.warn("FCM is not supported in this browser environment.");
-    }
-  } catch (err) {
-    console.error("Error initializing Firebase:", err);
-  }
+    try {
+      if (getApps().length === 0) {
+        firebaseApp = initializeApp(config);
+      } else {
+        firebaseApp = getApp();
+      }
 
-  return { app: firebaseApp, messaging: fcmMessaging, config };
+      const messagingSupported = await isSupported();
+      if (messagingSupported) {
+        fcmMessaging = getMessaging(firebaseApp);
+      } else {
+        console.warn("FCM is not supported in this browser environment.");
+      }
+    } catch (err) {
+      console.error("Error initializing Firebase:", err);
+    }
+
+    return { app: firebaseApp, messaging: fcmMessaging, config: firebaseConfig };
+  })();
+
+  return initPromise;
 }

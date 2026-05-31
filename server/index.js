@@ -230,7 +230,12 @@ async function getDeviceTokens() {
 }
 
 let firebaseAdminInitialized = false;
-if (process.env.FIREBASE_PROJECT_ID && process.env.FIREBASE_CLIENT_EMAIL && process.env.FIREBASE_PRIVATE_KEY) {
+const missingAdminVars = [];
+if (!process.env.FIREBASE_PROJECT_ID) missingAdminVars.push("FIREBASE_PROJECT_ID");
+if (!process.env.FIREBASE_CLIENT_EMAIL) missingAdminVars.push("FIREBASE_CLIENT_EMAIL");
+if (!process.env.FIREBASE_PRIVATE_KEY) missingAdminVars.push("FIREBASE_PRIVATE_KEY");
+
+if (missingAdminVars.length === 0) {
   try {
     let privateKey = process.env.FIREBASE_PRIVATE_KEY.trim();
     // Strip surrounding quotes if present (common mistake when pasting in Render/Heroku dashboard)
@@ -255,19 +260,25 @@ if (process.env.FIREBASE_PROJECT_ID && process.env.FIREBASE_CLIENT_EMAIL && proc
     console.error("Failed to initialize Firebase Admin SDK:", err);
   }
 } else {
-  console.warn("Firebase Admin SDK credentials not fully set in .env. Real-time push notifications will be skipped.");
+  console.warn(`Firebase Admin SDK credentials not fully set in .env. Missing: ${missingAdminVars.join(", ")}. Real-time push notifications will be skipped.`);
+}
+
+if (!process.env.VITE_FIREBASE_VAPID_KEY) {
+  console.warn("VITE_FIREBASE_VAPID_KEY is not defined in .env. Admin users will not be able to subscribe to push notifications on the frontend.");
 }
 
 async function sendNewOrderNotification(order) {
+  console.log(`[FCM Backend] Triggered dispatch for Order ID: ${order.orderId}`);
   if (!firebaseAdminInitialized) {
-    console.log("Firebase Admin not initialized. Skipping push notification.");
+    console.warn("[FCM Backend] Firebase Admin SDK is NOT initialized. Check credentials in .env file! Skipping push notification.");
     return;
   }
 
   try {
     const tokens = await getDeviceTokens();
+    console.log(`[FCM Backend] Retrieved ${tokens.length} registered admin device tokens from storage.`);
     if (tokens.length === 0) {
-      console.log("No registered admin device tokens found. Skipping push notification.");
+      console.log("[FCM Backend] No registered admin device tokens found. Skipping push notification.");
       return;
     }
 
@@ -283,19 +294,25 @@ async function sendNewOrderNotification(order) {
       }
     };
 
-    console.log(`Sending push notification to ${tokens.length} registered admin devices...`);
+    console.log("[FCM Backend] Message payload layout:", JSON.stringify(payload, null, 2));
+    console.log(`[FCM Backend] Initiating dispatch to ${tokens.length} target devices...`);
     
     const response = await admin.messaging().sendEach(tokens.map(token => ({
       token,
       ...payload
     })));
 
-    console.log(`FCM response: successfully sent ${response.successCount} messages; failed ${response.failureCount} messages.`);
+    console.log(`[FCM Backend] Google FCM response: successfully sent ${response.successCount} messages; failed ${response.failureCount} messages.`);
     
     const tokensToRemove = [];
     response.responses.forEach((resp, idx) => {
-      if (!resp.success) {
+      if (resp.success) {
+        console.log(`[FCM Backend] [+] Successfully delivered message to device index [${idx}] (Token: ${tokens[idx].substring(0, 15)}...)`);
+      } else {
         const errCode = resp.error?.code;
+        const errMessage = resp.error?.message;
+        console.error(`[FCM Backend] [-] Failed to deliver message to device index [${idx}] (Token: ${tokens[idx].substring(0, 15)}...). Error: ${errCode} - ${errMessage}`);
+        
         if (errCode === "messaging/invalid-registration-token" || errCode === "messaging/registration-token-not-registered") {
           tokensToRemove.push(tokens[idx]);
         }
@@ -1029,6 +1046,30 @@ app.get("/api/admin/notifications/devices", requireAdminAuth, async (req, res) =
   } catch (err) {
     console.error("Failed to list registered devices:", err);
     return res.status(500).json({ ok: false, message: "Failed to list registered devices" });
+  }
+});
+
+app.post("/api/admin/notifications/test", requireAdminAuth, async (req, res) => {
+  if (!firebaseAdminInitialized) {
+    return res.status(503).json({ ok: false, message: "Firebase Admin is not initialized. Please ensure FIREBASE_PROJECT_ID, FIREBASE_CLIENT_EMAIL, and FIREBASE_PRIVATE_KEY are set in your .env file." });
+  }
+
+  try {
+    const testOrder = {
+      orderId: "ANJ-TEST-PUSH",
+      grandTotal: 1234,
+      customer: {
+        name: "Test Admin System"
+      },
+      createdAt: new Date().toISOString()
+    };
+
+    console.log("Triggering test push notification from Admin Panel...");
+    await sendNewOrderNotification(testOrder);
+    return res.json({ ok: true, message: "Test push notification dispatched successfully." });
+  } catch (err) {
+    console.error("Failed to send test push notification:", err);
+    return res.status(500).json({ ok: false, message: "Failed to dispatch test notification.", error: err.message });
   }
 });
 
