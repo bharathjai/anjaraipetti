@@ -69,41 +69,43 @@ async function initializeFirebaseInWorker() {
 self.addEventListener("push", (event) => {
   console.log("[firebase-messaging-sw.js] RAW PUSH EVENT RECEIVED IN SERVICE WORKER!", event);
   
-  let payload = null;
-  if (event.data) {
-    try {
-      payload = event.data.json();
-      console.log("[firebase-messaging-sw.js] Parsed Raw Push JSON Payload:", JSON.stringify(payload, null, 2));
-    } catch (err) {
-      console.warn("[firebase-messaging-sw.js] Raw push data payload is not JSON. Text data:", event.data.text());
-    }
-  }
-
-  // Parse fields from standard FCM format or raw push formats
-  const title = payload?.notification?.title || payload?.data?.title || "New Order Received (SW Fallback)";
-  const body = payload?.notification?.body || payload?.data?.body || "A new order has been placed.";
-  const link = payload?.data?.link || payload?.webpush?.fcmOptions?.link || "/admin/orders";
-
-  console.log(`[firebase-messaging-sw.js] Raw push listener displaying notification: "${title}"`);
-
-  const notificationOptions = {
-    body,
-    icon: "/favicon.ico",
-    badge: "/favicon.ico",
-    tag: "new-order-alert",
-    data: { link },
-    vibrate: [200, 100, 200],
-    requireInteraction: true
-  };
-
   event.waitUntil(
-    self.registration.showNotification(title, notificationOptions)
-      .then(() => {
-        console.log("[firebase-messaging-sw.js] self.registration.showNotification succeeded.");
-      })
-      .catch((err) => {
-        console.error("[firebase-messaging-sw.js] self.registration.showNotification failed:", err);
-      })
+    initializeFirebaseInWorker().then(() => {
+      let payload = null;
+      if (event.data) {
+        try {
+          payload = event.data.json();
+          console.log("[firebase-messaging-sw.js] Parsed Raw Push JSON Payload:", JSON.stringify(payload, null, 2));
+        } catch (err) {
+          console.warn("[firebase-messaging-sw.js] Raw push data payload is not JSON. Text data:", event.data.text());
+        }
+      }
+
+      // Parse fields from standard FCM format or raw push formats
+      const title = payload?.notification?.title || payload?.data?.title || "New Order Received (SW Fallback)";
+      const body = payload?.notification?.body || payload?.data?.body || "A new order has been placed.";
+      const link = payload?.data?.link || payload?.webpush?.fcmOptions?.link || "/admin/orders";
+
+      console.log(`[firebase-messaging-sw.js] Raw push listener displaying notification: "${title}"`);
+
+      const notificationOptions = {
+        body,
+        icon: "/favicon.ico",
+        badge: "/favicon.ico",
+        tag: "new-order-alert",
+        data: { link },
+        vibrate: [200, 100, 200],
+        requireInteraction: true
+      };
+
+      return self.registration.showNotification(title, notificationOptions)
+        .then(() => {
+          console.log("[firebase-messaging-sw.js] self.registration.showNotification succeeded.");
+        })
+        .catch((err) => {
+          console.error("[firebase-messaging-sw.js] self.registration.showNotification failed:", err);
+        });
+    })
   );
 });
 
@@ -116,7 +118,12 @@ self.addEventListener("install", (event) => {
 
 self.addEventListener("activate", (event) => {
   console.log("[firebase-messaging-sw.js] Activating service worker...");
-  event.waitUntil(self.clients.claim());
+  event.waitUntil(
+    Promise.all([
+      self.clients.claim(),
+      initializeFirebaseInWorker()
+    ])
+  );
 });
 
 // Handle notification click and navigate to the target link
@@ -154,11 +161,28 @@ self.addEventListener("notificationclick", (event) => {
 self.addEventListener("message", (event) => {
   console.log("[firebase-messaging-sw.js] Message received from client app:", event.data);
   if (event.data && event.data.type === "PING_SW") {
-    event.source.postMessage({
-      type: "PONG_SW",
-      status: "active",
-      messagingInitialized,
-      time: new Date().toISOString()
-    });
+    event.waitUntil(
+      initializeFirebaseInWorker().then(() => {
+        console.log(`[firebase-messaging-sw.js] Replying to PING_SW. messagingInitialized = ${messagingInitialized}`);
+        event.source.postMessage({
+          type: "PONG_SW",
+          status: "active",
+          messagingInitialized,
+          time: new Date().toISOString()
+        });
+      }).catch((err) => {
+        console.error("[firebase-messaging-sw.js] Failed to initialize Firebase on diagnostic PING_SW:", err);
+        event.source.postMessage({
+          type: "PONG_SW",
+          status: "active",
+          messagingInitialized: false,
+          error: err.message,
+          time: new Date().toISOString()
+        });
+      })
+    );
   }
 });
+
+// Proactively run initialization on global startup evaluation
+initializeFirebaseInWorker();
