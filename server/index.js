@@ -275,28 +275,66 @@ async function sendNewOrderNotification(order) {
   }
 
   try {
-    const tokens = await getDeviceTokens();
-    console.log(`[FCM Backend] Retrieved ${tokens.length} registered admin device tokens from storage.`);
-    if (tokens.length === 0) {
+    // 1. Fetch full device objects with metadata to log details
+    let devices = [];
+    if (isPersistenceEnabled()) {
+      devices = await AdminDeviceTokenModel.find({}).lean();
+    } else {
+      devices = Array.from(memoryDeviceTokens.entries()).map(([token, meta]) => ({
+        token,
+        ...meta
+      }));
+    }
+
+    console.log(`[FCM Backend] Retrieved ${devices.length} registered admin device records from storage.`);
+    if (devices.length === 0) {
       console.log("[FCM Backend] No registered admin device tokens found. Skipping push notification.");
       return;
     }
 
+    // 2. Log all target tokens and their metadata in full before sending
+    console.log("[FCM Backend] =================== TARGET FCM TOKENS ===================");
+    devices.forEach((d, idx) => {
+      console.log(`[FCM Backend] Device [${idx}]: Name="${d.deviceName}", Browser="${d.browser}", Email="${d.adminEmail || "N/A"}"`);
+      console.log(`[FCM Backend] Device [${idx}] FULL TOKEN: "${d.token}"`);
+    });
+    console.log("[FCM Backend] ========================================================");
+
+    const title = "New Order Received";
+    const body = `${order.customer?.name || "Customer"}\n${order.orderId}\n₹${order.grandTotal}`;
+    const link = "/admin/orders";
+
+    // 3. Construct premium, highly compatible payload containing both notification, data, and webpush structures
     const payload = {
       notification: {
-        title: "New Order Received",
-        body: `${order.customer?.name || "Customer"}\n${order.orderId}\n₹${order.grandTotal}`
+        title,
+        body
+      },
+      data: {
+        title,
+        body,
+        link,
+        orderId: String(order.orderId || "")
       },
       webpush: {
+        notification: {
+          title,
+          body,
+          icon: "/favicon.ico",
+          badge: "/favicon.ico",
+          tag: "new-order-alert", // Groups/collapses notifications
+          requireInteraction: true
+        },
         fcmOptions: {
-          link: "/admin/orders"
+          link
         }
       }
     };
 
     console.log("[FCM Backend] Message payload layout:", JSON.stringify(payload, null, 2));
-    console.log(`[FCM Backend] Initiating dispatch to ${tokens.length} target devices...`);
+    console.log(`[FCM Backend] Initiating dispatch to ${devices.length} target devices...`);
     
+    const tokens = devices.map(d => d.token);
     const response = await admin.messaging().sendEach(tokens.map(token => ({
       token,
       ...payload
@@ -306,27 +344,33 @@ async function sendNewOrderNotification(order) {
     
     const tokensToRemove = [];
     response.responses.forEach((resp, idx) => {
+      const device = devices[idx];
       if (resp.success) {
-        console.log(`[FCM Backend] [+] Successfully delivered message to device index [${idx}] (Token: ${tokens[idx].substring(0, 15)}...)`);
+        console.log(`[FCM Backend] [+] SUCCESS delivering message to Device [${idx}] ("${device.deviceName}" on ${device.browser})`);
+        console.log(`[FCM Backend]     FCM Message ID: ${resp.messageId}`);
+        console.log(`[FCM Backend]     Token: ${device.token}`);
       } else {
         const errCode = resp.error?.code;
         const errMessage = resp.error?.message;
-        console.error(`[FCM Backend] [-] Failed to deliver message to device index [${idx}] (Token: ${tokens[idx].substring(0, 15)}...). Error: ${errCode} - ${errMessage}`);
+        console.error(`[FCM Backend] [-] FAILURE delivering message to Device [${idx}] ("${device.deviceName}" on ${device.browser})`);
+        console.error(`[FCM Backend]     Error Code: ${errCode}`);
+        console.error(`[FCM Backend]     Error Message: ${errMessage}`);
+        console.error(`[FCM Backend]     Token: ${device.token}`);
         
         if (errCode === "messaging/invalid-registration-token" || errCode === "messaging/registration-token-not-registered") {
-          tokensToRemove.push(tokens[idx]);
+          tokensToRemove.push(device.token);
         }
       }
     });
 
     if (tokensToRemove.length > 0) {
-      console.log(`Cleaning up ${tokensToRemove.length} inactive device tokens...`);
+      console.log(`[FCM Backend] Cleaning up ${tokensToRemove.length} inactive device tokens...`);
       for (const t of tokensToRemove) {
         await removeDeviceToken(t);
       }
     }
   } catch (err) {
-    console.error("Failed to send FCM push notification:", err);
+    console.error("[FCM Backend] Failed to send FCM push notification:", err);
   }
 }
 const razorpayKeyId = process.env.RAZORPAY_KEY_ID || "";
