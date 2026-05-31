@@ -19,7 +19,7 @@ export default function Footer() {
             <div className="h-10 w-32 opacity-80">
               <BrandHatMark />
             </div>
-            <p className="mt-4 font-display text-2xl text-espresso">Anjaraipetti</p>
+            <p className="mt-4 font-display text-2xl text-espresso">Namma Veetu Anjaraipetti</p>
             <p className="mt-2 text-sm leading-relaxed text-truffle/75">
               Handcrafted masala blends bringing authentic South Indian flavors to your kitchen. 
               Premium spices, bold taste, restaurant-quality finish.
@@ -94,7 +94,7 @@ export default function Footer() {
           transition={{ duration: 0.5, delay: 0.2 }}
           className="mt-8 flex flex-col items-center justify-between gap-4 text-sm text-truffle/60 sm:flex-row"
         >
-          <p>© {currentYear} Anjaraipetti. All rights reserved.</p>
+          <p>© {currentYear} Namma Veetu Anjaraipetti. All rights reserved.</p>
           <p>
             Crafted with ❤️ by{" "}
             <a

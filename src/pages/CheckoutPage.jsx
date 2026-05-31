@@ -208,7 +208,7 @@ export default function CheckoutPage({ cartItems, onClearCart, deliveryChargeEna
         key: keyId,
         amount: createOrderPayload.razorpayOrder.amount,
         currency: createOrderPayload.razorpayOrder.currency,
-        name: "Anjaraipetti",
+        name: "Namma Veetu Anjaraipetti",
         description: `${cartItems.length} item(s)`,
         order_id: createOrderPayload.razorpayOrder.id,
         prefill: {
