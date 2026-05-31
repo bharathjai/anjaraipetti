@@ -52,6 +52,43 @@ function getDeviceAndBrowserInfo() {
   return { deviceName, browser };
 }
 
+function playBellSound() {
+  try {
+    const AudioContext = window.AudioContext || window.webkitAudioContext;
+    if (!AudioContext) return;
+    const ctx = new AudioContext();
+    
+    const playTone = (freq, delay, duration) => {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      
+      osc.type = "sine";
+      osc.frequency.setValueAtTime(freq, ctx.currentTime + delay);
+      
+      gain.gain.setValueAtTime(0, ctx.currentTime + delay);
+      gain.gain.linearRampToValueAtTime(0.35, ctx.currentTime + delay + 0.04);
+      gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + delay + duration);
+      
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      
+      osc.start(ctx.currentTime + delay);
+      osc.stop(ctx.currentTime + delay + duration);
+    };
+
+    // Beautiful harmonic chime chords (Ding-Dong chime effect)
+    playTone(523.25, 0, 1.2); // C5 (First ding)
+    playTone(659.25, 0, 1.2); // E5
+    playTone(783.99, 0, 1.2); // G5
+    
+    playTone(392.00, 0.35, 1.6); // G4 (Second dong)
+    playTone(493.88, 0.35, 1.6); // B4
+    playTone(587.33, 0.35, 1.6); // D5
+  } catch (err) {
+    console.warn("Autoplay audio blocked or AudioContext failed:", err);
+  }
+}
+
 export default function AdminOrdersPage() {
   const navigate = useNavigate();
   const [orders, setOrders] = useState([]);
@@ -212,6 +249,9 @@ export default function AdminOrdersPage() {
           unsubscribe = onMessage(messaging, (payload) => {
             console.log("Foreground notification received:", payload);
             if (Notification.permission === "granted") {
+              // Play a beautiful synthesized bell chime!
+              playBellSound();
+
               new Notification(payload.notification?.title || "New Order Received", {
                 body: payload.notification?.body || "A new order has been placed.",
                 icon: "/favicon.ico"
