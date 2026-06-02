@@ -30,8 +30,8 @@ export default function NavBar({ cartQuantity }) {
             <span className="relative z-10 -mt-1.5 font-display text-2xl tracking-wide text-truffle sm:text-3xl">Anjaraipetti</span>
           </span>
         </NavLink>
-        <div className="flex w-full items-center md:w-auto">
-          <nav className="flex w-full items-center gap-2 rounded-full border border-truffle/15 bg-white/80 p-1 md:w-auto">
+        <div className="flex w-full items-center justify-between gap-3 md:w-auto md:justify-start">
+          <nav className="flex flex-1 items-center gap-2 rounded-full border border-truffle/15 bg-white/80 p-1 md:w-auto md:flex-none">
           {links.map((link) => (
             <NavLink
               key={link.to}
@@ -49,6 +49,7 @@ export default function NavBar({ cartQuantity }) {
             </NavLink>
           ))}
           </nav>
+
         </div>
       </div>
     </motion.header>

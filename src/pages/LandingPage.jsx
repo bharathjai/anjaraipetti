@@ -63,7 +63,6 @@ export default function LandingPage({ products }) {
         </motion.div>
       </div>
 
-
     </section>
   );
 }
