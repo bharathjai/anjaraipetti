@@ -106,7 +106,9 @@ export default function AdminOrdersPage() {
     }));
   };
 
-  const adminToken = useMemo(() => localStorage.getItem(ADMIN_TOKEN_KEY) || "", []);
+  const adminToken = useMemo(() => {
+    return localStorage.getItem(ADMIN_TOKEN_KEY) || localStorage.getItem("anjaraipetti_customer_token") || "";
+  }, []);
 
   const [subStatus, setSubStatus] = useState("loading"); // loading, subscribed, unsubscribed, permission_denied, unsupported
   const [swRegistration, setSwRegistration] = useState(null);
@@ -654,6 +656,33 @@ export default function AdminOrdersPage() {
     }
   };
 
+  const handleUpdateStatus = async (orderId, newStatus) => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/admin/orders/${orderId}/status`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${adminToken}`
+        },
+        body: JSON.stringify({ status: newStatus })
+      });
+      const data = await response.json();
+      if (response.status === 401 || response.status === 403) {
+        localStorage.removeItem(ADMIN_TOKEN_KEY);
+        navigate("/admin/login", { replace: true });
+        return;
+      }
+      if (!response.ok || !data.ok) {
+        alert(data.message || "Failed to update order status.");
+        return;
+      }
+      setOrders(prev => prev.map(o => o.orderId === orderId ? { ...o, status: newStatus } : o));
+    } catch (err) {
+      console.error(err);
+      alert("Failed to update status.");
+    }
+  };
+
   if (loading) {
     return (
       <section className="mx-auto flex min-h-[70vh] w-full max-w-5xl items-center justify-center px-6 py-20 md:px-10">
@@ -1030,14 +1059,27 @@ export default function AdminOrdersPage() {
                     </div>
                   </div>
 
-                  {/* Expanded Detail Panel */}
                   {isExpanded && (
                     <div className="border-t border-truffle/10 bg-white/40 p-6 md:p-8">
                       <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
-                        <div>
+                        <div className="flex flex-wrap items-center gap-4">
                           <p className="text-xs text-truffle/60">
                             Order ID: <span className="font-mono">{order.orderId}</span>
                           </p>
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs font-semibold text-truffle/70 uppercase tracking-wider">Status:</span>
+                            <select
+                              value={order.status || "Order confirmed"}
+                              onChange={(e) => handleUpdateStatus(order.orderId, e.target.value)}
+                              className="rounded-lg border border-truffle/20 bg-white px-2.5 py-1 text-xs text-truffle outline-none focus:border-cocoa transition"
+                            >
+                              <option value="Order confirmed">Order confirmed</option>
+                              <option value="Packed">Packed</option>
+                              <option value="Shipped">Shipped</option>
+                              <option value="Delivered">Delivered</option>
+                              <option value="Cancelled">Cancelled</option>
+                            </select>
+                          </div>
                         </div>
                         <div className="flex flex-wrap gap-3">
                           <button

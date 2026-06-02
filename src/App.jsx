@@ -15,6 +15,8 @@ import OrderSuccessPage from "./pages/OrderSuccessPage";
 import ProductPage from "./pages/ProductPage";
 import ProductsPage from "./pages/ProductsPage";
 import RecipePage from "./pages/RecipePage";
+import MyOrdersPage from "./pages/MyOrdersPage";
+import ProfilePage from "./pages/ProfilePage";
 
 const ingredients = [
   { title: "Guntur Chilli", note: "Deep red color and bold chilli-forward heat." },
@@ -206,6 +208,19 @@ export default function App() {
     });
   };
 
+  const addMultipleToCart = (items) => {
+    setCart((prev) => {
+      const next = { ...prev };
+      items.forEach((item) => {
+        const delta = Math.max(1, Number.parseInt(item.quantity, 10) || 1);
+        const available = Number(inventoryMap[item.productId] ?? 9999);
+        const currentQty = next[item.productId] || 0;
+        next[item.productId] = Math.max(0, Math.min(available, currentQty + delta));
+      });
+      return next;
+    });
+  };
+
   const clearCart = () => setCart({});
 
   const getDynamicProductById = (productId) => {
@@ -284,6 +299,8 @@ export default function App() {
         />
         <Route path="/order/:orderId" element={<OrderSuccessPage />} />
         <Route path="/recipe/:productId" element={<RecipePage />} />
+        <Route path="/my-orders" element={<MyOrdersPage onAddMultipleToCart={addMultipleToCart} />} />
+        <Route path="/profile" element={<ProfilePage />} />
         <Route path="/admin/login" element={<AdminLoginPage />} />
         <Route path="/admin/orders" element={<AdminOrdersPage />} />
         <Route path="*" element={<Navigate to="/" replace />} />

@@ -4,3 +4,5 @@ const browserOrigin = isBrowser ? window.location.origin : LOCAL_BACKEND_URL;
 
 export const API_BASE_URL = import.meta.env.VITE_API_URL || (import.meta.env.DEV ? LOCAL_BACKEND_URL : browserOrigin);
 export const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || (import.meta.env.DEV ? LOCAL_BACKEND_URL : browserOrigin);
+export const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID || "";
+

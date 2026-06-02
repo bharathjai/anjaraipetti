@@ -1,8 +1,9 @@
 import { motion } from "framer-motion";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, Navigate, useNavigate } from "react-router-dom";
-import { API_BASE_URL } from "../config/runtime";
+import { API_BASE_URL, GOOGLE_CLIENT_ID } from "../config/runtime";
 import TruckOrderButton from "../components/TruckOrderButton";
+import { useAuth } from "../context/AuthContext";
 
 function formatINR(value) {
   return new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR", maximumFractionDigits: 0 }).format(value);
@@ -43,6 +44,7 @@ export default function CheckoutPage({ cartItems, onClearCart, deliveryChargeEna
   const isConfirmed   = useRef(false); // true after animation completes to bypass redirect guard
   const isAnimationFinished = useRef(false); // true after GSAP animation completes
   const pendingRazorpayResponse = useRef(null);
+  const { user, token } = useAuth();
   const [form, setForm] = useState(initialForm);
   const [errors, setErrors] = useState({});
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -50,6 +52,61 @@ export default function CheckoutPage({ cartItems, onClearCart, deliveryChargeEna
   const [serverError, setServerError] = useState("");
   const [confirmedOrderId, setConfirmedOrderId] = useState("");
   const [isFetchingPincode, setIsFetchingPincode] = useState(false);
+
+  // Pre-fill checkout form details if user is authenticated
+  useEffect(() => {
+    if (user) {
+      const defaultAddr = user.addresses?.find(a => a.isDefault) || user.addresses?.[0] || {};
+      setForm((prev) => ({
+        ...prev,
+        customerName: prev.customerName || user.name || "",
+        email: prev.email || user.email || "",
+        phone: prev.phone || user.phone || "",
+        line1: prev.line1 || defaultAddr.line1 || "",
+        line2: prev.line2 || defaultAddr.line2 || "",
+        landmark: prev.landmark || defaultAddr.landmark || "",
+        city: prev.city || defaultAddr.city || "",
+        state: prev.state || defaultAddr.state || "",
+        pincode: prev.pincode || defaultAddr.pincode || ""
+      }));
+    }
+  }, [user]);
+
+  // Initialize success modal sign-in prompts if user is logged out
+  useEffect(() => {
+    if (confirmedOrderId && !user && typeof window !== "undefined" && window.google) {
+      setTimeout(() => {
+        try {
+          window.google.accounts.id.initialize({
+            client_id: GOOGLE_CLIENT_ID,
+            callback: async (response) => {
+              if (response.credential) {
+                const res = await loginWithGoogle(response.credential);
+                if (res.success) {
+                  navigate("/my-orders");
+                }
+              }
+            }
+          });
+          const btnEl = document.getElementById("google-signin-btn-checkout-success");
+          if (btnEl) {
+            window.google.accounts.id.renderButton(
+              btnEl,
+              { 
+                theme: "outline", 
+                size: "large", 
+                text: "signup_with",
+                shape: "pill",
+                width: "250"
+              }
+            );
+          }
+        } catch (err) {
+          console.error("Checkout success Google sign in initialization error:", err);
+        }
+      }, 100);
+    }
+  }, [confirmedOrderId, user, GOOGLE_CLIENT_ID]);
 
   useEffect(() => {
     const pin = form.pincode.trim();
@@ -140,6 +197,43 @@ export default function CheckoutPage({ cartItems, onClearCart, deliveryChargeEna
   // Called by the API — store orderId, but DON'T clear cart yet (animation still running)
   const showConfirmation = (nextOrderId) => {
     pendingOrderId.current = nextOrderId;
+    try {
+      let savedOrders = [];
+      try {
+        const parsed = JSON.parse(localStorage.getItem("anjaraipetti_placed_orders") || "[]");
+        if (Array.isArray(parsed)) {
+          savedOrders = parsed.map(o => {
+            if (typeof o === "string") {
+              return {
+                orderId: o,
+                orderDate: new Date().toISOString(),
+                totalAmount: 0,
+                status: "Order confirmed"
+              };
+            }
+            return o;
+          });
+        }
+      } catch (e) {
+        savedOrders = [];
+      }
+
+      const exists = savedOrders.some(o => o && o.orderId === nextOrderId);
+      if (!exists) {
+        savedOrders.push({
+          orderId: nextOrderId,
+          orderDate: new Date().toISOString(),
+          totalAmount: total,
+          status: "Order confirmed"
+        });
+        localStorage.setItem("anjaraipetti_placed_orders", JSON.stringify(savedOrders));
+      }
+      if (form.phone) {
+        localStorage.setItem("anjaraipetti_customer_phone", form.phone.trim());
+      }
+    } catch (e) {
+      console.error("Error updating local storage with order/phone:", e);
+    }
     // If the animation has already finished driving, show the popup immediately!
     if (isAnimationFinished.current) {
       isConfirmed.current = true;
@@ -163,11 +257,14 @@ export default function CheckoutPage({ cartItems, onClearCart, deliveryChargeEna
   const placeCodOrder = async () => {
     const response = await fetch(`${API_BASE_URL}/api/orders`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          items: cartItems.map((item) => ({ productId: item.product.id, quantity: item.quantity })),
-          customer,
-          address,
+      headers: {
+        "Content-Type": "application/json",
+        ...(token ? { Authorization: `Bearer ${token}` } : {})
+      },
+      body: JSON.stringify({
+        items: cartItems.map((item) => ({ productId: item.product.id, quantity: item.quantity })),
+        customer,
+        address,
         payment: {
           method: "cod"
         }
@@ -189,7 +286,10 @@ export default function CheckoutPage({ cartItems, onClearCart, deliveryChargeEna
 
     const createOrderResponse = await fetch(`${API_BASE_URL}/api/payments/razorpay/order`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        ...(token ? { Authorization: `Bearer ${token}` } : {})
+      },
       body: JSON.stringify({
         items: cartItems.map((item) => ({ productId: item.product.id, quantity: item.quantity }))
       })
@@ -277,7 +377,10 @@ export default function CheckoutPage({ cartItems, onClearCart, deliveryChargeEna
           `${API_BASE_URL}/api/orders/razorpay/confirm`,
           {
             method: "POST",
-            headers: { "Content-Type": "application/json" },
+            headers: {
+              "Content-Type": "application/json",
+              ...(token ? { Authorization: `Bearer ${token}` } : {})
+            },
             body: JSON.stringify({
               items: cartItems.map((item) => ({ productId: item.product.id, quantity: item.quantity })),
               customer,
@@ -558,6 +661,25 @@ export default function CheckoutPage({ cartItems, onClearCart, deliveryChargeEna
                 >
                   View Order Details
                 </Link>
+
+                {!user && (
+                  <div className="mt-6 border-t border-truffle/10 pt-6 text-center">
+                    <p className="text-xs font-semibold text-espresso mb-2 uppercase tracking-wide font-display">
+                      ✨ Save this order to your account
+                    </p>
+                    <p className="text-[10px] text-truffle/80 mb-4 leading-relaxed font-body max-w-sm mx-auto">
+                      Sign in with Google to automatically track shipping, download PDF invoices, and save your address.
+                    </p>
+                    <div className="flex flex-col items-center gap-3">
+                      {/* Premium Google Button Wrapper */}
+                      <div className="relative group/btn overflow-hidden rounded-full p-[2px] transition-all duration-300 hover:scale-[1.03] active:scale-[0.98] hover:shadow-[0_0_20px_rgba(208,132,62,0.25)] bg-gradient-to-r from-amber via-yellow-500 to-amber-700 w-[254px] mx-auto">
+                        <div className="rounded-full bg-white p-0.5">
+                          <div id="google-signin-btn-checkout-success" className="relative z-10 mx-auto" />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           </div>

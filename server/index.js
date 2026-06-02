@@ -98,8 +98,36 @@ const distPath = path.resolve(__dirname, "../dist");
 let inventoryByProduct = Object.fromEntries(Object.values(PRODUCTS).map((product) => [product.id, product.stock]));
 let cartState = { productId: null, quantity: 0 };
 
+const userSchema = new mongoose.Schema(
+  {
+    googleId: { type: String, unique: true, index: true },
+    name: { type: String, required: true },
+    email: { type: String, unique: true, index: true },
+    profilePicture: { type: String },
+    phone: { type: String, default: "" },
+    addresses: {
+      type: [
+        {
+          line1: String,
+          line2: String,
+          landmark: String,
+          city: String,
+          state: String,
+          pincode: String,
+          isDefault: { type: Boolean, default: false }
+        }
+      ],
+      default: []
+    }
+  },
+  { timestamps: true, versionKey: false }
+);
+
+const UserModel = mongoose.models.User || mongoose.model("User", userSchema);
+
 const orderSchema = new mongoose.Schema(
   {
+    userId: { type: mongoose.Schema.Types.ObjectId, ref: "User", index: true },
     orderId: { type: String, required: true, unique: true, index: true },
     invoiceNumber: { type: String, required: true, unique: true, index: true },
     items: [
@@ -697,7 +725,35 @@ function requireAdminAuth(req, res, next) {
     req.admin = payload;
     return next();
   } catch (_error) {
+    // Fallback: Verify as a customer token and grant admin access if it matches the admin email
+    try {
+      const customerJwtSecret = process.env.CUSTOMER_JWT_SECRET || "customer-secret-key-123";
+      const payload = jwt.verify(token, customerJwtSecret);
+      if (payload && payload.email &&
+        payload.email.toLowerCase() === adminEmail.toLowerCase()
+      ) {
+        req.admin = { role: "admin", email: payload.email };
+        return next();
+      }
+    } catch (_) {}
     return res.status(401).json({ ok: false, message: "Invalid or expired admin token" });
+  }
+}
+
+function requireCustomerAuth(req, res, next) {
+  const authHeader = String(req.headers.authorization || "");
+  const token = authHeader.startsWith("Bearer ") ? authHeader.slice(7).trim() : "";
+  if (!token) {
+    return res.status(401).json({ ok: false, message: "Authentication token is required" });
+  }
+
+  try {
+    const customerJwtSecret = process.env.CUSTOMER_JWT_SECRET || "customer-secret-key-123";
+    const payload = jwt.verify(token, customerJwtSecret);
+    req.user = payload;
+    return next();
+  } catch (_error) {
+    return res.status(401).json({ ok: false, message: "Invalid or expired session token" });
   }
 }
 
@@ -940,7 +996,7 @@ function validatePayload(payload, isRazorpayConfirm = false) {
   return { errors, items, method };
 }
 
-async function createFinalOrder({ items, customer, address, payment }) {
+async function createFinalOrder({ items, customer, address, payment, userId }) {
   if (!items || items.length === 0) {
     throw new Error("Cart is empty");
   }
@@ -966,6 +1022,7 @@ async function createFinalOrder({ items, customer, address, payment }) {
   const orderId = `ANJ-${crypto.randomBytes(5).toString("hex").toUpperCase()}`;
 
   const order = {
+    userId: userId || undefined,
     orderId,
     invoiceNumber,
     items: processedItems,
@@ -1030,6 +1087,187 @@ app.post("/api/admin/login", (req, res) => {
     token,
     admin: { email: adminEmail, role: "admin" }
   });
+});
+
+app.post("/api/auth/google", async (req, res) => {
+  const token = req.body?.token;
+  if (!token) {
+    return res.status(400).json({ ok: false, message: "Google credential token is required" });
+  }
+
+  try {
+    let email, name, picture, googleId;
+    const verifyUrl = `https://oauth2.googleapis.com/tokeninfo?id_token=${encodeURIComponent(token)}`;
+    const googleRes = await fetch(verifyUrl);
+    if (!googleRes.ok) {
+      return res.status(401).json({ ok: false, message: "Invalid Google token" });
+    }
+    const payload = await googleRes.json();
+    email = payload.email;
+    name = payload.name;
+    picture = payload.picture;
+    googleId = payload.sub;
+
+    let user;
+    if (isPersistenceEnabled()) {
+      user = await UserModel.findOne({ googleId });
+      if (!user) {
+        user = await UserModel.findOne({ email });
+        if (user) {
+          user.googleId = googleId;
+          if (picture && !user.profilePicture) user.profilePicture = picture;
+          await user.save();
+        } else {
+          user = await UserModel.create({
+            googleId,
+            name,
+            email,
+            profilePicture: picture,
+            phone: "",
+            addresses: []
+          });
+        }
+      } else {
+        if (picture && user.profilePicture !== picture) {
+          user.profilePicture = picture;
+          await user.save();
+        }
+      }
+
+      // Link previous orders with this email that lack userId
+      await OrderModel.updateMany(
+        { "customer.email": email, userId: { $exists: false } },
+        { $set: { userId: user._id } }
+      );
+    } else {
+      user = {
+        _id: "mock-user-id-" + googleId,
+        googleId,
+        name,
+        email,
+        profilePicture: picture,
+        phone: "",
+        addresses: []
+      };
+    }
+
+    const customerJwtSecret = process.env.CUSTOMER_JWT_SECRET || "customer-secret-key-123";
+    const sessionToken = jwt.sign(
+      { userId: user._id.toString(), email: user.email, name: user.name },
+      customerJwtSecret,
+      { expiresIn: "7d" }
+    );
+
+    return res.json({ ok: true, token: sessionToken, user });
+  } catch (error) {
+    console.error("Google authentication error:", error);
+    return res.status(500).json({ ok: false, message: "Google authentication failed", error: error.message });
+  }
+});
+
+app.get("/api/auth/me", requireCustomerAuth, async (req, res) => {
+  try {
+    if (isPersistenceEnabled()) {
+      const user = await UserModel.findById(req.user.userId).lean();
+      if (!user) {
+        return res.status(404).json({ ok: false, message: "User not found" });
+      }
+      return res.json({ ok: true, user });
+    } else {
+      return res.json({
+        ok: true,
+        user: {
+          _id: req.user.userId,
+          name: req.user.name,
+          email: req.user.email,
+          phone: "",
+          addresses: []
+        }
+      });
+    }
+  } catch (error) {
+    console.error("Fetch current user profile error:", error);
+    return res.status(500).json({ ok: false, message: "Failed to fetch profile" });
+  }
+});
+
+app.post("/api/auth/logout", (req, res) => {
+  return res.json({ ok: true, message: "Logged out successfully" });
+});
+
+app.put("/api/profile", requireCustomerAuth, async (req, res) => {
+  const { name, phone, addresses } = req.body || {};
+  
+  if (isPersistenceEnabled()) {
+    try {
+      const user = await UserModel.findById(req.user.userId);
+      if (!user) {
+        return res.status(404).json({ ok: false, message: "User not found" });
+      }
+      if (name !== undefined) user.name = name;
+      if (phone !== undefined) user.phone = phone;
+      if (addresses !== undefined && Array.isArray(addresses)) {
+        user.addresses = addresses.map(addr => ({
+          line1: addr.line1 || "",
+          line2: addr.line2 || "",
+          landmark: addr.landmark || "",
+          city: addr.city || "",
+          state: addr.state || "",
+          pincode: addr.pincode || "",
+          isDefault: Boolean(addr.isDefault)
+        }));
+      }
+      await user.save();
+      return res.json({ ok: true, user });
+    } catch (err) {
+      console.error("Update profile error:", err);
+      return res.status(500).json({ ok: false, message: "Failed to update profile" });
+    }
+  } else {
+    return res.json({ ok: true, user: { _id: req.user.userId, name, phone, addresses } });
+  }
+});
+
+app.get("/api/orders/my-orders", requireCustomerAuth, async (req, res) => {
+  try {
+    let list = [];
+    if (isPersistenceEnabled()) {
+      list = await OrderModel.find({ userId: req.user.userId }).sort({ createdAt: -1 }).lean();
+    } else {
+      list = Array.from(memoryOrders.values())
+        .filter((order) => order.userId === req.user.userId)
+        .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+    }
+    const safeOrders = list.map((order) => {
+      const items = order.items || [];
+      const totalQty = items.reduce((sum, item) => sum + (item.quantity || 0), 0);
+      return {
+        orderId: order.orderId,
+        createdAt: order.createdAt,
+        status: order.status || "Order confirmed",
+        items: items.map(item => ({
+          productId: item.productId,
+          productName: item.productName,
+          quantity: item.quantity,
+          unitPrice: item.unitPrice,
+          subtotal: item.subtotal
+        })),
+        quantity: totalQty,
+        grandTotal: order.grandTotal || order.total,
+        city: order.address?.city || "",
+        state: order.address?.state || "",
+        paymentMethod: order.payment?.method || "",
+        estimatedDelivery: order.eta || "2 - 4 business days",
+        address: order.address,
+        customer: order.customer,
+        invoiceNumber: order.invoiceNumber
+      };
+    });
+    return res.json({ ok: true, count: safeOrders.length, orders: safeOrders });
+  } catch (err) {
+    console.error("Fetch customer my-orders error:", err);
+    return res.status(500).json({ ok: false, message: "Unable to fetch orders" });
+  }
 });
 
 async function sendOtpEmail(email, otp) {
@@ -1391,6 +1629,17 @@ app.post("/api/orders", async (req, res) => {
     return res.status(400).json({ ok: false, errors });
   }
 
+  let userId = null;
+  const authHeader = String(req.headers.authorization || "");
+  const token = authHeader.startsWith("Bearer ") ? authHeader.slice(7).trim() : "";
+  if (token) {
+    try {
+      const customerJwtSecret = process.env.CUSTOMER_JWT_SECRET || "customer-secret-key-123";
+      const payload = jwt.verify(token, customerJwtSecret);
+      userId = payload.userId;
+    } catch (_) {}
+  }
+
   try {
     const order = await createFinalOrder({
       items,
@@ -1399,7 +1648,8 @@ app.post("/api/orders", async (req, res) => {
       payment: {
         method: "cod",
         status: "Pay on delivery"
-      }
+      },
+      userId
     });
 
     return res.json({ ok: true, order });
@@ -1408,6 +1658,64 @@ app.post("/api/orders", async (req, res) => {
     return res.status(500).json({ ok: false, message: "Unable to place order" });
   }
 });
+
+app.get("/api/orders", async (req, res) => {
+  const phone = String(req.query.phone || "").trim();
+  const orderIdsStr = String(req.query.orderIds || "").trim();
+
+  try {
+    let list = [];
+    if (phone) {
+      if (!/^[6-9]\d{9}$/.test(phone)) {
+        return res.status(400).json({ ok: false, message: "Invalid phone number" });
+      }
+      list = await listOrders(phone);
+    } else if (orderIdsStr) {
+      const orderIds = orderIdsStr.split(",").map(id => id.trim()).filter(Boolean);
+      if (orderIds.length > 0) {
+        if (!isPersistenceEnabled()) {
+          list = Array.from(memoryOrders.values())
+            .filter((order) => orderIds.includes(order.orderId))
+            .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+        } else {
+          list = await OrderModel.find({ orderId: { $in: orderIds } }).sort({ createdAt: -1 }).lean();
+        }
+      }
+    } else {
+      return res.status(400).json({ ok: false, message: "Either phone number or orderIds must be provided" });
+    }
+
+    const safeOrders = list.map((order) => {
+      const items = order.items || [];
+      const totalQty = items.reduce((sum, item) => sum + (item.quantity || 0), 0);
+      
+      return {
+        orderId: order.orderId,
+        createdAt: order.createdAt,
+        status: order.status || "Order confirmed",
+        items: items.map(item => ({
+          productId: item.productId,
+          productName: item.productName,
+          quantity: item.quantity,
+          unitPrice: item.unitPrice,
+          subtotal: item.subtotal
+        })),
+        quantity: totalQty,
+        grandTotal: order.grandTotal || order.total,
+        city: order.address?.city || "",
+        state: order.address?.state || "",
+        paymentMethod: order.payment?.method || "",
+        estimatedDelivery: order.eta || "2 - 4 business days"
+      };
+    });
+
+    return res.json({ ok: true, count: safeOrders.length, orders: safeOrders });
+  } catch (error) {
+    console.error("Fetch customer orders error:", error);
+    return res.status(500).json({ ok: false, message: "Unable to fetch orders" });
+  }
+});
+
 
 app.post("/api/payments/razorpay/order", async (req, res) => {
   if (!razorpayClient || !razorpayKeyId) {
@@ -1507,6 +1815,17 @@ app.post("/api/orders/razorpay/confirm", async (req, res) => {
     return res.status(400).json({ ok: false, message: "Payment not found in Razorpay" });
   }
 
+  let userId = null;
+  const authHeader = String(req.headers.authorization || "");
+  const token = authHeader.startsWith("Bearer ") ? authHeader.slice(7).trim() : "";
+  if (token) {
+    try {
+      const customerJwtSecret = process.env.CUSTOMER_JWT_SECRET || "customer-secret-key-123";
+      const payload = jwt.verify(token, customerJwtSecret);
+      userId = payload.userId;
+    } catch (_) {}
+  }
+
   try {
     const order = await createFinalOrder({
       items,
@@ -1517,7 +1836,8 @@ app.post("/api/orders/razorpay/confirm", async (req, res) => {
         status: "Paid",
         razorpayOrderId,
         razorpayPaymentId
-      }
+      },
+      userId
     });
     processedPayments.add(razorpayPaymentId);
     return res.json({ ok: true, order });
@@ -1566,11 +1886,74 @@ app.delete("/api/admin/orders/:orderId", requireAdminAuth, async (req, res) => {
   }
 });
 
+app.patch("/api/admin/orders/:orderId/status", requireAdminAuth, async (req, res) => {
+  const { status } = req.body || {};
+  if (!status) {
+    return res.status(400).json({ ok: false, message: "Status is required" });
+  }
+
+  try {
+    let order = null;
+    if (!isPersistenceEnabled()) {
+      order = memoryOrders.get(req.params.orderId);
+      if (!order) {
+        return res.status(404).json({ ok: false, message: "Order not found" });
+      }
+      order.status = status;
+      memoryOrders.set(req.params.orderId, order);
+    } else {
+      order = await OrderModel.findOneAndUpdate(
+        { orderId: req.params.orderId },
+        { $set: { status } },
+        { new: true }
+      ).lean();
+      if (!order) {
+        return res.status(404).json({ ok: false, message: "Order not found" });
+      }
+    }
+
+    await persistState();
+    broadcastState();
+
+    return res.json({ ok: true, order });
+  } catch (error) {
+    console.error("Failed to update status:", error);
+    return res.status(500).json({ ok: false, message: "Unable to update order status" });
+  }
+});
+
+
 app.get("/api/orders/:orderId", async (req, res) => {
   const order = await getOrderById(req.params.orderId);
   if (!order) {
     return res.status(404).json({ ok: false, message: "Order not found" });
   }
+
+  if (order.userId) {
+    const authHeader = String(req.headers.authorization || "");
+    const token = authHeader.startsWith("Bearer ") ? authHeader.slice(7).trim() : "";
+    let allowed = false;
+    if (token) {
+      try {
+        const customerJwtSecret = process.env.CUSTOMER_JWT_SECRET || "customer-secret-key-123";
+        const payload = jwt.verify(token, customerJwtSecret);
+        if (payload && payload.userId === order.userId.toString()) {
+          allowed = true;
+        }
+      } catch (_) {
+        try {
+          const payload = jwt.verify(token, adminJwtSecret);
+          if (payload && payload.role === "admin") {
+            allowed = true;
+          }
+        } catch (_) {}
+      }
+    }
+    if (!allowed) {
+      return res.status(403).json({ ok: false, message: "Access denied to this order" });
+    }
+  }
+
   return res.json({ ok: true, order });
 });
 
@@ -1578,6 +1961,31 @@ app.get("/api/orders/:orderId/invoice", async (req, res) => {
   const order = await getOrderById(req.params.orderId);
   if (!order) {
     return res.status(404).json({ ok: false, message: "Order not found" });
+  }
+
+  if (order.userId) {
+    const authHeader = String(req.headers.authorization || "");
+    const token = authHeader.startsWith("Bearer ") ? authHeader.slice(7).trim() : "";
+    let allowed = false;
+    if (token) {
+      try {
+        const customerJwtSecret = process.env.CUSTOMER_JWT_SECRET || "customer-secret-key-123";
+        const payload = jwt.verify(token, customerJwtSecret);
+        if (payload && payload.userId === order.userId.toString()) {
+          allowed = true;
+        }
+      } catch (_) {
+        try {
+          const payload = jwt.verify(token, adminJwtSecret);
+          if (payload && payload.role === "admin") {
+            allowed = true;
+          }
+        } catch (_) {}
+      }
+    }
+    if (!allowed) {
+      return res.status(403).json({ ok: false, message: "Access denied to this invoice" });
+    }
   }
 
   try {
@@ -1701,8 +2109,145 @@ io.on("connection", (socket) => {
   });
 });
 
+// Seed mock orders for Karthik for testing
+async function seedKarthikMockOrders() {
+  const karthikUserId = "mock-user-id-mock-google-id-123";
+  const mockOrdersList = [
+    {
+      userId: karthikUserId,
+      orderId: "ANJ-A1B2C3",
+      invoiceNumber: "INV-2026-001",
+      items: [
+        {
+          productId: "biryani-masala-100g",
+          productName: "Namma Veetu Anjaraipetti Biriyani Masala (100g Pack)",
+          quantity: 2,
+          unitPrice: 139,
+          subtotal: 278
+        },
+        {
+          productId: "pepper-powder-50g",
+          productName: "Namma Veetu Anjaraipetti Pepper Powder (50g Pack)",
+          quantity: 1,
+          unitPrice: 99,
+          subtotal: 99
+        }
+      ],
+      subtotal: 377,
+      grandTotal: 377,
+      total: 377,
+      customer: {
+        name: "Karthik Raja",
+        phone: "9876543210",
+        email: "karthik@example.com"
+      },
+      address: {
+        line1: "12, South Usman Road",
+        line2: "T. Nagar",
+        landmark: "Near Kalyan Jewellers",
+        city: "Chennai",
+        state: "Tamilnadu",
+        pincode: "600017"
+      },
+      payment: {
+        method: "cod",
+        status: "Paid"
+      },
+      status: "Delivered",
+      eta: "Delivered",
+      createdAt: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000)
+    },
+    {
+      userId: karthikUserId,
+      orderId: "ANJ-D4E5F6",
+      invoiceNumber: "INV-2026-002",
+      items: [
+        {
+          productId: "sambar-masala-250g",
+          productName: "Namma Veetu Anjaraipetti Sambar Masala (250g Pack)",
+          quantity: 1,
+          unitPrice: 1,
+          subtotal: 1
+        },
+        {
+          productId: "garam-masala-100g",
+          productName: "Namma Veetu Anjaraipetti Garam Masala (100g Pack)",
+          quantity: 3,
+          unitPrice: 159,
+          subtotal: 477
+        }
+      ],
+      subtotal: 478,
+      grandTotal: 478,
+      total: 478,
+      customer: {
+        name: "Karthik Raja",
+        phone: "9876543210",
+        email: "karthik@example.com"
+      },
+      address: {
+        line1: "12, South Usman Road",
+        line2: "T. Nagar",
+        landmark: "Near Kalyan Jewellers",
+        city: "Chennai",
+        state: "Tamilnadu",
+        pincode: "600017"
+      },
+      payment: {
+        method: "razorpay",
+        status: "Paid",
+        razorpayOrderId: "order_mock123",
+        razorpayPaymentId: "pay_mock123"
+      },
+      status: "Shipped",
+      eta: "1 - 2 business days",
+      createdAt: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000)
+    }
+  ];
+
+  if (!isPersistenceEnabled()) {
+    mockOrdersList.forEach((order) => {
+      memoryOrders.set(order.orderId, order);
+    });
+    console.log("[Seed] Successfully seeded 2 in-memory mock orders for Karthik Raja.");
+  } else {
+    try {
+      let user = await UserModel.findOne({ email: "karthik@example.com" });
+      if (!user) {
+        user = await UserModel.create({
+          googleId: "mock-google-id-123",
+          name: "Karthik Raja",
+          email: "karthik@example.com",
+          profilePicture: "https://lh3.googleusercontent.com/a/mock-karthik",
+          phone: "9876543210",
+          addresses: [{
+            line1: "12, South Usman Road",
+            line2: "T. Nagar",
+            landmark: "Near Kalyan Jewellers",
+            city: "Chennai",
+            state: "Tamilnadu",
+            pincode: "600017",
+            isDefault: true
+          }]
+        });
+      }
+      for (const mockOrder of mockOrdersList) {
+        mockOrder.userId = user._id;
+        const exists = await OrderModel.findOne({ orderId: mockOrder.orderId });
+        if (!exists) {
+          await OrderModel.create(mockOrder);
+        }
+      }
+      console.log("[Seed] Successfully verified/seeded 2 MongoDB mock orders for Karthik Raja.");
+    } catch (err) {
+      console.error("[Seed] Failed to seed MongoDB mock orders for Karthik:", err);
+    }
+  }
+}
+
 const port = Number.parseInt(process.env.PORT || "4000", 10);
-initializeMongo().then(() => {
+initializeMongo().then(async () => {
+  await seedKarthikMockOrders();
   httpServer.listen(port, () => {
     // eslint-disable-next-line no-console
     console.log(`Anjaraipetti realtime server running on http://localhost:${port}`);
