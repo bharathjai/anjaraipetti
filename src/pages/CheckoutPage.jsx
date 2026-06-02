@@ -44,7 +44,7 @@ export default function CheckoutPage({ cartItems, onClearCart, deliveryChargeEna
   const isConfirmed   = useRef(false); // true after animation completes to bypass redirect guard
   const isAnimationFinished = useRef(false); // true after GSAP animation completes
   const pendingRazorpayResponse = useRef(null);
-  const { user, token } = useAuth();
+  const { user, token, loginWithGoogle } = useAuth();
   const [form, setForm] = useState(initialForm);
   const [errors, setErrors] = useState({});
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -72,9 +72,9 @@ export default function CheckoutPage({ cartItems, onClearCart, deliveryChargeEna
     }
   }, [user]);
 
-  // Initialize success modal sign-in prompts if user is logged out with polling to handle async script loading
+  // Initialize Google Sign-in button for checkout authentication
   useEffect(() => {
-    if (!confirmedOrderId || user) return;
+    if (user) return;
 
     const initGoogleBtn = () => {
       if (typeof window === "undefined" || !window.google) return false;
@@ -83,38 +83,30 @@ export default function CheckoutPage({ cartItems, onClearCart, deliveryChargeEna
           client_id: GOOGLE_CLIENT_ID,
           callback: async (response) => {
             if (response.credential) {
-              const res = await loginWithGoogle(response.credential);
-              if (res.success) {
-                navigate("/my-orders");
-              }
+              await loginWithGoogle(response.credential);
             }
           }
         });
-        const btnEl = document.getElementById("google-signin-btn-checkout-success");
+        const btnEl = document.getElementById("google-signin-btn-checkout-login");
         if (btnEl) {
-          window.google.accounts.id.renderButton(
-            btnEl,
-            { 
-              theme: "outline", 
-              size: "large", 
-              text: "signup_with",
-              shape: "pill",
-              width: "250"
-            }
-          );
+          window.google.accounts.id.renderButton(btnEl, {
+            theme: "outline",
+            size: "large",
+            text: "signin_with",
+            shape: "pill",
+            width: "250"
+          });
           return true;
         }
       } catch (err) {
-        console.error("Checkout success Google sign in initialization error:", err);
+        console.error("Google sign-in initialization failed on Checkout Page:", err);
       }
       return false;
     };
 
-    // Try initializing immediately
     const ok = initGoogleBtn();
     if (ok) return;
 
-    // Check periodically if the script is not yet loaded
     const checkInterval = setInterval(() => {
       const done = initGoogleBtn();
       if (done) {
@@ -123,7 +115,7 @@ export default function CheckoutPage({ cartItems, onClearCart, deliveryChargeEna
     }, 200);
 
     return () => clearInterval(checkInterval);
-  }, [confirmedOrderId, user, GOOGLE_CLIENT_ID]);
+  }, [user, GOOGLE_CLIENT_ID]);
 
   useEffect(() => {
     const pin = form.pincode.trim();
@@ -167,6 +159,36 @@ export default function CheckoutPage({ cartItems, onClearCart, deliveryChargeEna
   // Don't redirect if truck animation is in progress or order is confirmed
   if ((!cartItems || cartItems.length === 0) && !isSubmitting && !confirmedOrderId && !isAnimating.current && !isConfirmed.current) {
     return <Navigate to="/cart" replace />;
+  }
+
+  // Force login before checkout can be accessed
+  if (!user) {
+    return (
+      <section className="relative min-h-[80vh] mx-auto w-full max-w-xl px-6 flex items-center justify-center">
+        <div className="w-full text-center bg-gradient-to-br from-almond/50 to-porcelain/90 rounded-3xl border border-amber/30 p-8 shadow-halo backdrop-blur-xl space-y-6 relative overflow-hidden group">
+          {/* Accent Glow Element */}
+          <div className="absolute -right-16 -top-16 w-32 h-32 rounded-full bg-amber/10 blur-2xl group-hover:bg-amber/15 transition-all duration-500" />
+          
+          <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-amber/10 text-3xl border border-amber/20 relative z-10">
+            🔒
+          </div>
+          <div className="relative z-10">
+            <h2 className="font-display text-3xl text-espresso font-semibold animate-pulse">Sign in to Checkout</h2>
+            <p className="text-xs text-truffle/80 mt-2 leading-relaxed font-body">
+              Please sign in using your Google account to complete your purchase. This links this order to your email, allowing you to track deliveries, download PDF receipts instantly, and secure your order history.
+            </p>
+          </div>
+          <div className="flex flex-col items-center gap-3 pt-2 relative z-10">
+            {/* Premium Google Button Wrapper */}
+            <div className="relative group/btn overflow-hidden rounded-full p-[2px] transition-all duration-300 hover:scale-[1.03] active:scale-[0.98] hover:shadow-[0_0_20px_rgba(208,132,62,0.3)] bg-gradient-to-r from-amber via-yellow-500 to-amber-700 w-[254px]">
+              <div className="rounded-full bg-white p-0.5">
+                <div id="google-signin-btn-checkout-login" className="relative z-10" />
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+    );
   }
 
   const handleInput = (event) => {
@@ -463,8 +485,8 @@ export default function CheckoutPage({ cartItems, onClearCart, deliveryChargeEna
                 {errors.phone ? <p className="mt-1 text-xs text-red-600">{errors.phone}</p> : null}
               </div>
               <div className="sm:col-span-2">
-                <label className={labelClass}>Email (Optional)</label>
-                <input name="email" value={form.email} onChange={handleInput} className={inputClass} />
+                <label className={labelClass}>Email Address</label>
+                <input name="email" value={form.email} disabled className={`${inputClass} opacity-60 cursor-not-allowed`} />
               </div>
               <div className="sm:col-span-2">
                 <label className={labelClass}>Address Line 1 <span className="text-red-500 font-bold ml-0.5">*</span></label>
@@ -679,24 +701,7 @@ export default function CheckoutPage({ cartItems, onClearCart, deliveryChargeEna
                   View Order Details
                 </Link>
 
-                {!user && (
-                  <div className="mt-6 border-t border-truffle/10 pt-6 text-center">
-                    <p className="text-xs font-semibold text-espresso mb-2 uppercase tracking-wide font-display">
-                      ✨ Save this order to your account
-                    </p>
-                    <p className="text-[10px] text-truffle/80 mb-4 leading-relaxed font-body max-w-sm mx-auto">
-                      Sign in with Google to automatically track shipping, download PDF invoices, and save your address.
-                    </p>
-                    <div className="flex flex-col items-center gap-3">
-                      {/* Premium Google Button Wrapper */}
-                      <div className="relative group/btn overflow-hidden rounded-full p-[2px] transition-all duration-300 hover:scale-[1.03] active:scale-[0.98] hover:shadow-[0_0_20px_rgba(208,132,62,0.25)] bg-gradient-to-r from-amber via-yellow-500 to-amber-700 w-[254px] mx-auto">
-                        <div className="rounded-full bg-white p-0.5">
-                          <div id="google-signin-btn-checkout-success" className="relative z-10 mx-auto" />
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                )}
+
               </div>
             </div>
           </div>
