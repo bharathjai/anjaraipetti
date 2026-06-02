@@ -72,40 +72,57 @@ export default function CheckoutPage({ cartItems, onClearCart, deliveryChargeEna
     }
   }, [user]);
 
-  // Initialize success modal sign-in prompts if user is logged out
+  // Initialize success modal sign-in prompts if user is logged out with polling to handle async script loading
   useEffect(() => {
-    if (confirmedOrderId && !user && typeof window !== "undefined" && window.google) {
-      setTimeout(() => {
-        try {
-          window.google.accounts.id.initialize({
-            client_id: GOOGLE_CLIENT_ID,
-            callback: async (response) => {
-              if (response.credential) {
-                const res = await loginWithGoogle(response.credential);
-                if (res.success) {
-                  navigate("/my-orders");
-                }
+    if (!confirmedOrderId || user) return;
+
+    const initGoogleBtn = () => {
+      if (typeof window === "undefined" || !window.google) return false;
+      try {
+        window.google.accounts.id.initialize({
+          client_id: GOOGLE_CLIENT_ID,
+          callback: async (response) => {
+            if (response.credential) {
+              const res = await loginWithGoogle(response.credential);
+              if (res.success) {
+                navigate("/my-orders");
               }
             }
-          });
-          const btnEl = document.getElementById("google-signin-btn-checkout-success");
-          if (btnEl) {
-            window.google.accounts.id.renderButton(
-              btnEl,
-              { 
-                theme: "outline", 
-                size: "large", 
-                text: "signup_with",
-                shape: "pill",
-                width: "250"
-              }
-            );
           }
-        } catch (err) {
-          console.error("Checkout success Google sign in initialization error:", err);
+        });
+        const btnEl = document.getElementById("google-signin-btn-checkout-success");
+        if (btnEl) {
+          window.google.accounts.id.renderButton(
+            btnEl,
+            { 
+              theme: "outline", 
+              size: "large", 
+              text: "signup_with",
+              shape: "pill",
+              width: "250"
+            }
+          );
+          return true;
         }
-      }, 100);
-    }
+      } catch (err) {
+        console.error("Checkout success Google sign in initialization error:", err);
+      }
+      return false;
+    };
+
+    // Try initializing immediately
+    const ok = initGoogleBtn();
+    if (ok) return;
+
+    // Check periodically if the script is not yet loaded
+    const checkInterval = setInterval(() => {
+      const done = initGoogleBtn();
+      if (done) {
+        clearInterval(checkInterval);
+      }
+    }, 200);
+
+    return () => clearInterval(checkInterval);
   }, [confirmedOrderId, user, GOOGLE_CLIENT_ID]);
 
   useEffect(() => {

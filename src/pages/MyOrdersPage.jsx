@@ -577,9 +577,12 @@ export default function MyOrdersPage({ onAddMultipleToCart }) {
   const [buyAgainId, setBuyAgainId] = useState(null);
   const [expandedOrders, setExpandedOrders] = useState({});
 
-  // Initialize Google Sign-in picker dynamically
+  // Initialize Google Sign-in picker dynamically with polling to handle async script loading
   useEffect(() => {
-    if (!user && typeof window !== "undefined" && window.google) {
+    if (user) return;
+
+    const initGoogleBtn = () => {
+      if (typeof window === "undefined" || !window.google) return false;
       try {
         window.google.accounts.id.initialize({
           client_id: GOOGLE_CLIENT_ID,
@@ -594,20 +597,39 @@ export default function MyOrdersPage({ onAddMultipleToCart }) {
             }
           }
         });
-        window.google.accounts.id.renderButton(
-          document.getElementById("google-signin-btn-myorders"),
-          { 
-            theme: "outline", 
-            size: "large", 
-            text: "continue_with",
-            shape: "pill",
-            width: "250"
-          }
-        );
+        const btnEl = document.getElementById("google-signin-btn-myorders");
+        if (btnEl) {
+          window.google.accounts.id.renderButton(
+            btnEl,
+            { 
+              theme: "outline", 
+              size: "large", 
+              text: "continue_with",
+              shape: "pill",
+              width: "250"
+            }
+          );
+          return true;
+        }
       } catch (err) {
         console.error("Google GIS integration failed on My Orders:", err);
       }
-    }
+      return false;
+    };
+
+    // Try initializing immediately
+    const ok = initGoogleBtn();
+    if (ok) return;
+
+    // Check periodically if the script is not yet loaded
+    const checkInterval = setInterval(() => {
+      const done = initGoogleBtn();
+      if (done) {
+        clearInterval(checkInterval);
+      }
+    }, 200);
+
+    return () => clearInterval(checkInterval);
   }, [user, GOOGLE_CLIENT_ID]);
 
   // Fetch detailed orders on mount or when auth/phone query changes

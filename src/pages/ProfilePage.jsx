@@ -85,9 +85,12 @@ export default function ProfilePage() {
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
 
-  // Initialize Google Sign-in button for guest profile view
+  // Initialize Google Sign-in button for guest profile view with polling to handle async script loading
   useEffect(() => {
-    if (!user && typeof window !== "undefined" && window.google) {
+    if (user) return;
+
+    const initGoogleBtn = () => {
+      if (typeof window === "undefined" || !window.google) return false;
       try {
         window.google.accounts.id.initialize({
           client_id: GOOGLE_CLIENT_ID,
@@ -111,11 +114,27 @@ export default function ProfilePage() {
             shape: "pill",
             width: "250"
           });
+          return true;
         }
       } catch (err) {
         console.error("Google sign-in failed on Profile Page:", err);
       }
-    }
+      return false;
+    };
+
+    // Try initializing immediately
+    const ok = initGoogleBtn();
+    if (ok) return;
+
+    // Check periodically if the script is not yet loaded
+    const checkInterval = setInterval(() => {
+      const done = initGoogleBtn();
+      if (done) {
+        clearInterval(checkInterval);
+      }
+    }, 200);
+
+    return () => clearInterval(checkInterval);
   }, [user, GOOGLE_CLIENT_ID]);
 
 
