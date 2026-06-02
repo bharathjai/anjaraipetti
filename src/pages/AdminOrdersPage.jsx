@@ -96,7 +96,15 @@ export default function AdminOrdersPage() {
   const [error, setError] = useState("");
   const [downloadingOrderId, setDownloadingOrderId] = useState("");
   const [deletingOrderId, setDeletingOrderId] = useState("");
+  const [expandedOrders, setExpandedOrders] = useState({});
   const invoiceRefs = useRef({});
+
+  const toggleOrderExpand = (orderId) => {
+    setExpandedOrders((prev) => ({
+      ...prev,
+      [orderId]: !prev[orderId]
+    }));
+  };
 
   const adminToken = useMemo(() => localStorage.getItem(ADMIN_TOKEN_KEY) || "", []);
 
@@ -953,51 +961,118 @@ export default function AdminOrdersPage() {
         <>
           {orders.length === 0 ? <p className="text-truffle/80">No orders yet.</p> : null}
 
-          <div className="space-y-6">
-            {orders.map((order, index) => (
-              <motion.article
-                key={order.orderId}
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: index * 0.04 }}
-                className="rounded-3xl border border-truffle/10 bg-white/75 p-6 shadow-luxe backdrop-blur-xl"
-              >
-                <div className="flex flex-wrap items-start justify-between gap-4">
-                  <div>
-                    <p className="text-xs uppercase tracking-[0.2em] text-cocoa/70">{order.invoiceNumber || order.orderId}</p>
-                    <h2 className="mt-1 font-display text-3xl text-truffle">{order.customer?.name}</h2>
-                    <p className="text-truffle/80">
-                      {order.customer?.phone} | {order.address?.city}, {order.address?.state}
-                    </p>
-                    <p className="text-truffle/80">
-                      Qty {order.quantity} | Grand Total {formatINR(order.grandTotal || order.total)}
-                    </p>
-                  </div>
-                  <div className="flex flex-wrap gap-2">
-                    <button
-                      type="button"
-                      onClick={() => handleDownload(order)}
-                      disabled={downloadingOrderId === order.orderId}
-                      className="rounded-full bg-truffle px-6 py-3 text-sm font-semibold uppercase tracking-[0.2em] text-porcelain disabled:cursor-not-allowed disabled:opacity-60"
-                    >
-                      {downloadingOrderId === order.orderId ? "Preparing PDF..." : "Download PDF"}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => handleDeleteOrder(order)}
-                      disabled={deletingOrderId === order.orderId}
-                      className="rounded-full border border-red-300 bg-red-50 px-6 py-3 text-sm font-semibold uppercase tracking-[0.2em] text-red-700 disabled:cursor-not-allowed disabled:opacity-60"
-                    >
-                      {deletingOrderId === order.orderId ? "Deleting..." : "Delete Order"}
-                    </button>
-                  </div>
-                </div>
+          <div className="space-y-4">
+            {orders.map((order, index) => {
+              const isExpanded = !!expandedOrders[order.orderId];
+              return (
+                <motion.article
+                  key={order.orderId}
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: index * 0.04 }}
+                  className="overflow-hidden rounded-3xl border border-truffle/10 bg-white/75 shadow-luxe backdrop-blur-xl transition hover:border-truffle/20"
+                >
+                  {/* Clickable Header */}
+                  <div
+                    onClick={() => toggleOrderExpand(order.orderId)}
+                    className="flex cursor-pointer flex-wrap items-center justify-between gap-4 p-6 hover:bg-cocoa/5 transition-colors"
+                  >
+                    <div className="flex flex-wrap items-center gap-x-8 gap-y-2">
+                      <div>
+                        <span className="text-[10px] font-bold uppercase tracking-wider bg-cocoa/10 px-2.5 py-1 rounded-full text-cocoa">
+                          {order.invoiceNumber || "No Invoice"}
+                        </span>
+                        <p className="mt-1 text-[11px] text-truffle/60 font-medium">
+                          {order.createdAt
+                            ? new Date(order.createdAt).toLocaleDateString("en-IN", {
+                                year: "numeric",
+                                month: "short",
+                                day: "numeric",
+                                hour: "2-digit",
+                                minute: "2-digit"
+                              })
+                            : "N/A"}
+                        </p>
+                      </div>
 
-                <div ref={setInvoiceRef(order.orderId)} className="mt-5">
-                  <InvoiceDocument order={order} />
-                </div>
-              </motion.article>
-            ))}
+                      <div>
+                        <p className="font-display text-lg text-espresso">{order.customer?.name}</p>
+                        <p className="text-xs text-truffle/70">{order.customer?.phone}</p>
+                      </div>
+
+                      <div>
+                        <p className="text-[10px] font-bold uppercase tracking-wider text-truffle/55">City / State</p>
+                        <p className="text-sm font-medium text-truffle">
+                          {order.address?.city || "N/A"}, {order.address?.state || "N/A"}
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-6">
+                      <div className="text-right">
+                        <p className="text-[10px] font-bold uppercase tracking-widest text-truffle/50">Total Amount</p>
+                        <p className="text-xl font-bold text-cocoa">{formatINR(order.grandTotal || order.total)}</p>
+                      </div>
+                      
+                      {/* Chevron Icon */}
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        strokeWidth={2.5}
+                        stroke="currentColor"
+                        className={`h-4.5 w-4.5 text-truffle/60 transition-transform duration-300 ${
+                          isExpanded ? "rotate-180" : ""
+                        }`}
+                      >
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" />
+                      </svg>
+                    </div>
+                  </div>
+
+                  {/* Expanded Detail Panel */}
+                  {isExpanded && (
+                    <div className="border-t border-truffle/10 bg-white/40 p-6 md:p-8">
+                      <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
+                        <div>
+                          <p className="text-xs text-truffle/60">
+                            Order ID: <span className="font-mono">{order.orderId}</span>
+                          </p>
+                        </div>
+                        <div className="flex flex-wrap gap-3">
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleDownload(order);
+                            }}
+                            disabled={downloadingOrderId === order.orderId}
+                            className="rounded-full bg-cocoa px-6 py-2.5 text-xs font-bold uppercase tracking-widest text-white hover:bg-cocoa/90 disabled:cursor-not-allowed disabled:opacity-60 transition shadow-sm"
+                          >
+                            {downloadingOrderId === order.orderId ? "Preparing PDF..." : "Download PDF"}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleDeleteOrder(order);
+                            }}
+                            disabled={deletingOrderId === order.orderId}
+                            className="rounded-full border border-red-200 bg-red-50 px-6 py-2.5 text-xs font-bold uppercase tracking-widest text-red-700 hover:bg-red-100/70 disabled:cursor-not-allowed disabled:opacity-60 transition"
+                          >
+                            {deletingOrderId === order.orderId ? "Deleting..." : "Delete Order"}
+                          </button>
+                        </div>
+                      </div>
+
+                      <div ref={setInvoiceRef(order.orderId)} className="mt-4">
+                        <InvoiceDocument order={order} />
+                      </div>
+                    </div>
+                  )}
+                </motion.article>
+              );
+            })}
           </div>
         </>
       )}

@@ -274,6 +274,32 @@ export const recipes = {
       "Add 1/2 cup of water, cover and cook on medium flame for 12-15 minutes until vegetables are cooked.",
       "Remove lid, sauté for a minute to dry excess moisture. Garnish with coriander. Serve hot with rotis!"
     ]
+  },
+  "jeera-powder": {
+    title: "Aromatic Jeera Aloo",
+    time: "15 mins",
+    serves: "3 people",
+    ingredients: [
+      "4 medium Potatoes (boiled, peeled, and cubed)",
+      "1.5 tsp Anjaraipetti Jeera Powder",
+      "1.5 tsp Cumin seeds (Jeera)",
+      "1 tsp Ginger (finely chopped)",
+      "2 Green chillies (slit)",
+      "1/2 tsp Turmeric powder",
+      "1/2 tsp Amchur powder (Dry mango powder)",
+      "2 tbsp Oil or Ghee",
+      "Salt to taste",
+      "Fresh coriander leaves for garnish"
+    ],
+    steps: [
+      "Heat oil or ghee in a pan. Add cumin seeds and let them splutter.",
+      "Add chopped ginger and green chillies. Sauté for 30 seconds on medium heat.",
+      "Add the boiled cubed potatoes, turmeric powder, and salt. Toss well to coat.",
+      "Sauté the potatoes on medium heat for 5-7 minutes until they turn golden and crispy on the edges.",
+      "Sprinkle Anjaraipetti Jeera Powder and amchur powder over the potatoes. Toss gently to mix without breaking the potatoes.",
+      "Cook for another 2 minutes so the spices roast and release their aroma.",
+      "Garnish with freshly chopped coriander leaves. Serve hot with puri, paratha, or as a side dish!"
+    ]
   }
 };
 

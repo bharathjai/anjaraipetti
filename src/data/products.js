@@ -202,6 +202,23 @@ export const products = [
     ]
   },
   {
+    id: "jeera-powder",
+    name: "Namma Veetu Anjaraipetti Jeera Powder",
+    price: 55,
+    size: "50g Pack",
+    subtitle: "Authentic Homemade Taste",
+    description: "Aromatic and earthy. Freshly ground premium cumin seeds to elevate the flavor of your daily curries and dishes. No preservatives. Handmade with care.",
+    heatLevel: "Mild",
+    origin: "Tamil Nadu",
+    category: "veg",
+    image: "/images/jeera-powder.png",
+    variants: [
+      { id: "jeera-powder-50g", size: "50g Pack", price: 55 },
+      { id: "jeera-powder-100g", size: "100g Pack", price: 99 },
+      { id: "jeera-powder-250g", size: "250g Pack", price: 239 }
+    ]
+  },
+  {
     id: "combo-box",
     name: "Complete Kitchen Spice Combo Box",
     price: 299,

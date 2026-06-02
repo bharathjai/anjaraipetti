@@ -73,6 +73,10 @@ const PRODUCTS = {
   "coriander-powder-100g": { id: "coriander-powder-100g", name: "Namma Veetu Anjaraipetti Coriander Powder (100g Pack)", price: 89, stock: 150 },
   "coriander-powder-250g": { id: "coriander-powder-250g", name: "Namma Veetu Anjaraipetti Coriander Powder (250g Pack)", price: 215, stock: 150 },
 
+  "jeera-powder-50g": { id: "jeera-powder-50g", name: "Namma Veetu Anjaraipetti Jeera Powder (50g Pack)", price: 55, stock: 150 },
+  "jeera-powder-100g": { id: "jeera-powder-100g", name: "Namma Veetu Anjaraipetti Jeera Powder (100g Pack)", price: 99, stock: 150 },
+  "jeera-powder-250g": { id: "jeera-powder-250g", name: "Namma Veetu Anjaraipetti Jeera Powder (250g Pack)", price: 239, stock: 150 },
+
   "combo-box": { id: "combo-box", name: "Namma Veetu Anjaraipetti Complete Kitchen Spice Combo Box", price: 299, stock: 150 },
   "test-product": { id: "test-product", name: "Namma Veetu Anjaraipetti Test Product", price: 1, stock: 9999 }
 };
@@ -84,6 +88,8 @@ let mongoConnected = false;
 let memoryInvoiceSequence = 0;
 const adminEmail = (process.env.ADMIN_EMAIL || "admin@anjaraipetti.com").toLowerCase();
 const adminPassword = process.env.ADMIN_PASSWORD || "admin123";
+let currentAdminPassword = adminPassword;
+let forgotPasswordOtp = null; // { email, otp, expiresAt }
 const adminJwtSecret = process.env.ADMIN_JWT_SECRET || "replace-this-secret";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -150,7 +156,8 @@ const appStateSchema = new mongoose.Schema(
     productId: { type: String, default: "biryani-masala" },
     cartQuantity: { type: Number, default: 0 },
     inventoryAvailable: { type: Number, default: 120 },
-    deliveryChargeEnabled: { type: Boolean, default: true }
+    deliveryChargeEnabled: { type: Boolean, default: true },
+    adminPassword: { type: String }
   },
   { versionKey: false }
 );
@@ -767,6 +774,10 @@ async function initializeMongo() {
       if (typeof state.deliveryChargeEnabled === "boolean") {
         deliveryChargeEnabled = state.deliveryChargeEnabled;
       }
+
+      if (state.adminPassword) {
+        currentAdminPassword = state.adminPassword;
+      }
     }
 
     await initializeCustomPrices();
@@ -1009,7 +1020,7 @@ app.post("/api/admin/login", (req, res) => {
     .toLowerCase();
   const password = String(req.body?.password || "");
 
-  if (email !== adminEmail || password !== adminPassword) {
+  if (email !== adminEmail || password !== currentAdminPassword) {
     return res.status(401).json({ ok: false, message: "Invalid admin credentials" });
   }
 
@@ -1019,6 +1030,192 @@ app.post("/api/admin/login", (req, res) => {
     token,
     admin: { email: adminEmail, role: "admin" }
   });
+});
+
+async function sendOtpEmail(email, otp) {
+  const oauthReady =
+    process.env.GMAIL_OAUTH_CLIENT_ID &&
+    process.env.GMAIL_OAUTH_CLIENT_SECRET &&
+    process.env.GMAIL_OAUTH_REFRESH_TOKEN &&
+    process.env.GMAIL_USER;
+
+  const appPasswordReady =
+    process.env.GMAIL_USER &&
+    process.env.GMAIL_PASS;
+
+  if (!oauthReady && !appPasswordReady) {
+    console.log("Gmail SMTP or OAuth2 credentials not set in .env. Cannot send OTP email.");
+    return false;
+  }
+
+  const textBody = `Hello Admin,\n\nYour OTP for resetting the Namma Veetu Anjaraipetti admin password is: ${otp}\n\nThis OTP is valid for 10 minutes. Please do not share this OTP with anyone.\n\nBest regards,\nAnjaraipetti`;
+
+  const htmlBody = `
+<div style="background-color: #fcfaf6; padding: 30px; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; color: #2a1a12;">
+  <div style="max-width: 500px; margin: 0 auto; background-color: #ffffff; border-radius: 16px; border: 1px solid #ebdcc8; overflow: hidden; box-shadow: 0 4px 12px rgba(68,35,13,0.06);">
+    <div style="background-color: #2a1a12; padding: 20px; text-align: center;">
+      <h1 style="margin: 0; color: #f4eee4; font-family: Georgia, serif; font-size: 24px; letter-spacing: 1px;">Anjaraipetti</h1>
+      <p style="margin: 4px 0 0 0; color: #d0843e; font-size: 10px; text-transform: uppercase; letter-spacing: 2px;">Admin Password Recovery</p>
+    </div>
+    <div style="padding: 30px; text-align: center;">
+      <h2 style="margin: 0 0 16px 0; font-size: 18px; color: #6f3f1e;">Verification Code</h2>
+      <p style="margin: 0 0 24px 0; font-size: 14px; line-height: 1.5; color: #4b2c1a;">
+        You requested a password reset. Use the One-Time Password (OTP) below to complete your reset. This OTP is valid for 10 minutes.
+      </p>
+      <div style="background-color: #fcfaf6; border-radius: 12px; border: 1px solid #ebdcc8; padding: 15px 30px; display: inline-block; margin-bottom: 24px;">
+        <span style="font-family: monospace; font-size: 32px; font-weight: bold; letter-spacing: 6px; color: #6f3f1e;">${otp}</span>
+      </div>
+      <p style="margin: 0; font-size: 12px; color: #8c7b70;">
+        If you did not request this reset, please secure your email account.
+      </p>
+    </div>
+    <div style="background-color: #f5f1eb; padding: 15px; text-align: center; border-top: 1px solid #ebdcc8; font-size: 11px; color: #4b2c1a;">
+      <p style="margin: 0; font-weight: bold; font-family: Georgia, serif;">Anjaraipetti Admin Panel</p>
+    </div>
+  </div>
+</div>
+  `;
+
+  try {
+    let emailSent = false;
+
+    if (oauthReady) {
+      console.log("Sending OTP email using Gmail REST API (OAuth2)...");
+      try {
+        const accessToken = await getGmailAccessToken();
+        const boundary = `boundary_${crypto.randomBytes(16).toString("hex")}`;
+
+        const mimeLines = [
+          `From: "Anjaraipetti Support" <${process.env.GMAIL_USER}>`,
+          `To: ${email}`,
+          `Subject: Admin Password Reset OTP: ${otp}`,
+          "MIME-Version: 1.0",
+          `Content-Type: multipart/mixed; boundary="${boundary}"`,
+          "",
+          `--${boundary}`,
+          "Content-Type: text/html; charset=UTF-8",
+          "",
+          htmlBody,
+          "",
+          `--${boundary}--`
+        ];
+
+        const rawMime = mimeLines.join("\r\n");
+        const encodedMessage = Buffer.from(rawMime)
+          .toString("base64")
+          .replace(/\+/g, "-")
+          .replace(/\//g, "_")
+          .replace(/=+$/, "");
+
+        const gmailRes = await fetch("https://gmail.googleapis.com/gmail/v1/users/me/messages/send", {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({ raw: encodedMessage })
+        });
+
+        if (!gmailRes.ok) {
+          const errText = await gmailRes.text();
+          throw new Error(`Gmail API error: ${gmailRes.status} ${errText}`);
+        }
+
+        console.log(`OTP email sent via Gmail REST API to ${email}`);
+        emailSent = true;
+      } catch (oauthErr) {
+        console.error("Gmail OAuth2 failed for OTP email:", oauthErr.message);
+      }
+    }
+
+    if (!emailSent && appPasswordReady) {
+      console.log("Sending OTP email using standard Nodemailer SMTP (App Password)...");
+      const transporter = nodemailer.createTransport({
+        service: "gmail",
+        auth: {
+          user: process.env.GMAIL_USER,
+          pass: process.env.GMAIL_PASS
+        }
+      });
+
+      await transporter.sendMail({
+        from: `"Anjaraipetti Support" <${process.env.GMAIL_USER}>`,
+        to: email,
+        subject: `Admin Password Reset OTP: ${otp}`,
+        text: textBody,
+        html: htmlBody
+      });
+
+      console.log(`OTP email sent via Nodemailer SMTP to ${email}`);
+      emailSent = true;
+    }
+
+    return emailSent;
+  } catch (err) {
+    console.error("Failed to send OTP email:", err);
+    return false;
+  }
+}
+
+app.post("/api/admin/forgot-password", async (req, res) => {
+  const email = String(req.body?.email || "").trim().toLowerCase();
+
+  if (!email || email !== adminEmail) {
+    return res.status(400).json({ ok: false, message: "Invalid admin email address" });
+  }
+
+  // Generate 6-digit OTP
+  const otp = String(Math.floor(100000 + Math.random() * 900000));
+  forgotPasswordOtp = {
+    email,
+    otp,
+    expiresAt: Date.now() + 10 * 60 * 1000 // 10 minutes validity
+  };
+
+  const sent = await sendOtpEmail(email, otp);
+  if (!sent) {
+    return res.status(500).json({ ok: false, message: "Failed to send OTP email. Check mail settings in .env." });
+  }
+
+  return res.json({ ok: true, message: "OTP sent to your admin email address." });
+});
+
+app.post("/api/admin/reset-password", async (req, res) => {
+  const email = String(req.body?.email || "").trim().toLowerCase();
+  const otp = String(req.body?.otp || "").trim();
+  const newPassword = String(req.body?.newPassword || "").trim();
+
+  if (!email || email !== adminEmail) {
+    return res.status(400).json({ ok: false, message: "Invalid admin email" });
+  }
+
+  if (!forgotPasswordOtp || forgotPasswordOtp.email !== email || forgotPasswordOtp.otp !== otp) {
+    return res.status(400).json({ ok: false, message: "Invalid OTP code" });
+  }
+
+  if (forgotPasswordOtp.expiresAt < Date.now()) {
+    return res.status(400).json({ ok: false, message: "OTP code has expired" });
+  }
+
+  if (!newPassword || newPassword.length < 4) {
+    return res.status(400).json({ ok: false, message: "New password must be at least 4 characters long" });
+  }
+
+  currentAdminPassword = newPassword;
+  forgotPasswordOtp = null; // Clear OTP
+
+  try {
+    if (isPersistenceEnabled()) {
+      await AppStateModel.findOneAndUpdate(
+        { key: "global" },
+        { $set: { adminPassword: newPassword } }
+      );
+    }
+  } catch (dbErr) {
+    console.error("Failed to persist new admin password in DB:", dbErr);
+  }
+
+  return res.json({ ok: true, message: "Password reset successful. You can now login with your new password." });
 });
 
 app.get("/api/firebase-config", (req, res) => {
