@@ -538,6 +538,62 @@ function LuxuryBackgroundMotifs() {
   );
 }
 
+// Center-aligned premium header component with decorative left and right illustrations
+function PageHeader({ title, subtitle, activePhone, handleClearPhoneSync }) {
+  return (
+    <div className="relative w-full pb-6 pt-4 border-b border-truffle/10 mb-8 flex flex-col items-center text-center overflow-visible select-none min-h-[140px]">
+      {/* Decorative illustrations with responsive sizes for mobile up to desktop */}
+      <div className="absolute inset-0 pointer-events-none overflow-visible">
+        {/* Left spice bowl illustration */}
+        <motion.img
+          initial={{ opacity: 0, x: -20, rotate: -6 }}
+          animate={{ opacity: 1, x: 0, rotate: 0 }}
+          transition={{ duration: 0.8, ease: "easeOut" }}
+          src="/images/header_left_spices.png"
+          alt="Traditional Masala Spices Bowl"
+          className="absolute left-[-15px] sm:left-0 top-1/2 -translate-y-1/2 w-14 sm:w-24 md:w-28 lg:w-36 h-14 sm:h-24 md:h-28 lg:h-36 object-contain drop-shadow-[0_4px_10px_rgba(68,35,13,0.08)]"
+        />
+        {/* Right delivery package illustration */}
+        <motion.img
+          initial={{ opacity: 0, x: 20, rotate: 6 }}
+          animate={{ opacity: 1, x: 0, rotate: 0 }}
+          transition={{ duration: 0.8, ease: "easeOut" }}
+          src="/images/header_right_box.png"
+          alt="Delivery Package Box"
+          className="absolute right-[-15px] sm:right-0 top-1/2 -translate-y-1/2 w-14 sm:w-24 md:w-28 lg:w-36 h-14 sm:h-24 md:h-28 lg:h-36 object-contain drop-shadow-[0_4px_10px_rgba(68,35,13,0.08)]"
+        />
+      </div>
+
+      {/* Title & Subtext */}
+      <motion.div
+        initial={{ opacity: 0, y: -8 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.6 }}
+        className="space-y-2 max-w-xl relative z-10 px-4 mt-2"
+      >
+        <h1 className="font-display text-4xl font-bold tracking-tight text-espresso sm:text-5xl">
+          {title}
+        </h1>
+        <p className="text-xs sm:text-sm text-truffle/65 leading-relaxed font-semibold">
+          {subtitle}
+        </p>
+      </motion.div>
+
+      {/* Sign Out Sync trigger */}
+      {activePhone && (
+        <div className="mt-4 relative z-10">
+          <button
+            onClick={handleClearPhoneSync}
+            className="text-xs font-bold uppercase tracking-wider text-cocoa hover:text-white border border-cocoa/30 bg-white/60 hover:bg-cocoa px-5 py-2.5 rounded-full transition-all duration-200 shadow-sm cursor-pointer"
+          >
+            Sign Out Phone Sync
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function MyOrdersPage({ onAddMultipleToCart }) {
   const navigate = useNavigate();
   const { user, token, loginWithGoogle, loading: authLoading } = useAuth();
@@ -931,10 +987,7 @@ export default function MyOrdersPage({ onAddMultipleToCart }) {
       <section className="relative min-h-screen mx-auto w-full max-w-5xl px-6 pb-24 pt-8 md:px-10">
         <SpiceParticles />
         <LuxuryBackgroundMotifs />
-        <div className="flex flex-col gap-3 border-b border-truffle/10 pb-6">
-          <h1 className="font-display text-4xl text-espresso sm:text-5xl">My Orders</h1>
-          <p className="text-sm text-truffle/70 mt-1">Loading your secured orders...</p>
-        </div>
+        <PageHeader title="My Orders" subtitle="Loading your secured orders..." />
         <div className="mt-8 space-y-6">
           {[1, 2].map((i) => (
             <div key={i} className="animate-pulse rounded-3xl border border-truffle/10 bg-white/70 p-6 space-y-6">
@@ -957,22 +1010,10 @@ export default function MyOrdersPage({ onAddMultipleToCart }) {
         <SpiceParticles />
         <LuxuryBackgroundMotifs />
 
-        {/* Logged In Header */}
-        <div className="border-b border-truffle/10 pb-4 pt-2">
-          <motion.div
-            initial={{ opacity: 0, y: -8 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5 }}
-            className="space-y-1.5"
-          >
-            <h1 className="font-display text-4xl font-bold tracking-tight text-espresso sm:text-5xl">
-              Vanakkam, {user.name?.split(" ")[0]} 👋
-            </h1>
-            <p className="text-sm font-medium text-truffle/60">
-              Track deliveries, reorder authentic masalas, and download invoices.
-            </p>
-          </motion.div>
-        </div>
+        <PageHeader 
+          title={`Vanakkam, ${user.name?.split(" ")[0]} 👋`} 
+          subtitle="Track deliveries, reorder authentic masalas, and download invoices." 
+        />
 
         {/* Filtering & Sorting Controls */}
         <motion.div
@@ -1121,30 +1162,12 @@ export default function MyOrdersPage({ onAddMultipleToCart }) {
       <SpiceParticles />
       <LuxuryBackgroundMotifs />
 
-      {/* Header */}
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between border-b border-truffle/10 pb-4 pt-2">
-        <motion.div
-          initial={{ opacity: 0, y: -8 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="space-y-1.5"
-        >
-          <h1 className="font-display text-4xl text-espresso sm:text-5xl font-semibold">
-            My Orders
-          </h1>
-          <p className="text-sm text-truffle/70">
-            Track deliveries, reorder your favorite masalas, and download invoices.
-          </p>
-        </motion.div>
-
-        {activePhone && (
-          <button
-            onClick={handleClearPhoneSync}
-            className="w-fit text-xs font-bold uppercase tracking-wider text-cocoa hover:text-white border border-cocoa/30 bg-white/60 hover:bg-cocoa px-5 py-2.5 rounded-full transition-all duration-200 shadow-sm cursor-pointer"
-          >
-            Sign Out Phone Sync
-          </button>
-        )}
-      </div>
+      <PageHeader 
+        title="My Orders" 
+        subtitle="Track deliveries, reorder your favorite masalas, and download invoices." 
+        activePhone={activePhone} 
+        handleClearPhoneSync={handleClearPhoneSync} 
+      />
 
       {/* Guest Login Callout */}
       {!activePhone && (

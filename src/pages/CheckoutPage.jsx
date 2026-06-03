@@ -52,6 +52,7 @@ export default function CheckoutPage({ cartItems, onClearCart, deliveryChargeEna
   const [serverError, setServerError] = useState("");
   const [confirmedOrderId, setConfirmedOrderId] = useState("");
   const [isFetchingPincode, setIsFetchingPincode] = useState(false);
+  const [bypassLogin, setBypassLogin] = useState(false);
 
   // Pre-fill checkout form details if user is authenticated
   useEffect(() => {
@@ -161,30 +162,82 @@ export default function CheckoutPage({ cartItems, onClearCart, deliveryChargeEna
     return <Navigate to="/cart" replace />;
   }
 
-  // Force login before checkout can be accessed
-  if (!user) {
+  // Ask user to login before checkout, explaining the benefits (or continue as guest)
+  if (!user && !bypassLogin) {
     return (
-      <section className="relative min-h-[80vh] mx-auto w-full max-w-xl px-6 flex items-center justify-center">
-        <div className="w-full text-center bg-gradient-to-br from-almond/50 to-porcelain/90 rounded-3xl border border-amber/30 p-8 shadow-halo backdrop-blur-xl space-y-6 relative overflow-hidden group">
+      <section className="relative min-h-[85vh] mx-auto w-full max-w-2xl px-4 sm:px-6 flex items-center justify-center py-12">
+        <div className="w-full bg-gradient-to-br from-white/95 via-almond/50 to-porcelain/90 rounded-[2.5rem] border border-truffle/15 p-8 sm:p-12 shadow-luxe backdrop-blur-xl space-y-8 relative overflow-hidden group">
           {/* Accent Glow Element */}
-          <div className="absolute -right-16 -top-16 w-32 h-32 rounded-full bg-amber/10 blur-2xl group-hover:bg-amber/15 transition-all duration-500" />
+          <div className="absolute -right-24 -top-24 w-48 h-48 rounded-full bg-amber/10 blur-3xl group-hover:bg-amber/15 transition-all duration-700" />
+          <div className="absolute -left-24 -bottom-24 w-48 h-48 rounded-full bg-yellow-500/5 blur-3xl group-hover:bg-yellow-500/10 transition-all duration-700" />
           
-          <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-amber/10 text-3xl border border-amber/20 relative z-10">
-            🔒
+          <div className="flex flex-col items-center text-center space-y-4">
+            <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-amber/10 text-3xl border border-amber/20 shadow-sm relative z-10">
+              🔒
+            </div>
+            <div className="relative z-10 space-y-2">
+              <h2 className="font-display text-3xl sm:text-4xl text-espresso font-semibold tracking-tight">Sign in to Checkout</h2>
+              <p className="text-sm text-truffle/75 max-w-md mx-auto leading-relaxed">
+                Log in using your Google account to unlock a premium tracking and order management experience.
+              </p>
+            </div>
           </div>
-          <div className="relative z-10">
-            <h2 className="font-display text-3xl text-espresso font-semibold animate-pulse">Sign in to Checkout</h2>
-            <p className="text-xs text-truffle/80 mt-2 leading-relaxed font-body">
-              Please sign in using your Google account to complete your purchase. This links this order to your email, allowing you to track deliveries, download PDF receipts instantly, and secure your order history.
-            </p>
+
+          {/* Benefits Grid/List */}
+          <div className="bg-white/60 border border-truffle/10 rounded-3xl p-6 space-y-4 relative z-10 shadow-inner">
+            <h3 className="text-xs font-black uppercase tracking-widest text-truffle/60 border-b border-truffle/5 pb-2.5">
+              Secure Checkout Benefits
+            </h3>
+            
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="flex items-start gap-3">
+                <span className="text-emerald-500 font-bold shrink-0 text-base">✓</span>
+                <div>
+                  <p className="text-sm font-bold text-cocoa leading-snug">Track Orders</p>
+                  <p className="text-xs text-truffle/70 mt-0.5">Real-time status updates and delivery tracking.</p>
+                </div>
+              </div>
+
+              <div className="flex items-start gap-3">
+                <span className="text-emerald-500 font-bold shrink-0 text-base">✓</span>
+                <div>
+                  <p className="text-sm font-bold text-cocoa leading-snug">View Order History</p>
+                  <p className="text-xs text-truffle/70 mt-0.5">Keep a secure log of all past purchases and invoice receipts.</p>
+                </div>
+              </div>
+
+              <div className="flex items-start gap-3">
+                <span className="text-emerald-500 font-bold shrink-0 text-base">✓</span>
+                <div>
+                  <p className="text-sm font-bold text-cocoa leading-snug">Download Invoices</p>
+                  <p className="text-xs text-truffle/70 mt-0.5">Access official PDF invoices instantly anytime.</p>
+                </div>
+              </div>
+
+              <div className="flex items-start gap-3">
+                <span className="text-emerald-500 font-bold shrink-0 text-base">✓</span>
+                <div>
+                  <p className="text-sm font-bold text-cocoa leading-snug">Faster Checkout</p>
+                  <p className="text-xs text-truffle/70 mt-0.5">Save multiple delivery addresses securely.</p>
+                </div>
+              </div>
+            </div>
           </div>
-          <div className="flex flex-col items-center gap-3 pt-2 relative z-10">
+
+          <div className="flex flex-col items-center gap-4 relative z-10 pt-2">
             {/* Premium Google Button Wrapper */}
-            <div className="relative group/btn overflow-hidden rounded-full p-[2px] transition-all duration-300 hover:scale-[1.03] active:scale-[0.98] hover:shadow-[0_0_20px_rgba(208,132,62,0.3)] bg-gradient-to-r from-amber via-yellow-500 to-amber-700 w-[254px]">
+            <div className="relative group/btn overflow-hidden rounded-full p-[2px] transition-all duration-300 hover:scale-[1.02] active:scale-[0.98] hover:shadow-[0_0_20px_rgba(208,132,62,0.25)] bg-gradient-to-r from-amber via-yellow-500 to-amber-700 w-[254px]">
               <div className="rounded-full bg-white p-0.5">
                 <div id="google-signin-btn-checkout-login" className="relative z-10" />
               </div>
             </div>
+
+            <button
+              onClick={() => setBypassLogin(true)}
+              className="text-xs font-bold uppercase tracking-wider text-truffle/60 hover:text-cocoa border border-truffle/20 hover:border-cocoa/40 bg-white/40 hover:bg-white/80 px-6 py-3 rounded-full transition-all duration-200 shadow-sm cursor-pointer"
+            >
+              Continue without Login &rarr;
+            </button>
           </div>
         </div>
       </section>
