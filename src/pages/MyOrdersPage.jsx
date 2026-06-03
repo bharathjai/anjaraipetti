@@ -300,7 +300,7 @@ function CustomDropdown({ value, onChange, options }) {
   );
 }
 
-// Redesigned Order Card component representing a premium e-commerce order entry
+// Redesigned Order Card — clean list row matching screenshot reference
 function OrderCard({
   order,
   isExpanded,
@@ -311,132 +311,81 @@ function OrderCard({
   handleBuyAgain,
   handleDownloadInvoice
 }) {
+  // Get the first item's product info for the thumbnail image
+  const firstItem = order.items?.[0];
+  const prodInfo = firstItem ? getProductById(firstItem.productId) : null;
+  const thumbImg = prodInfo?.image || null;
+  const totalItems = order.items?.reduce((sum, i) => sum + (i.quantity || 1), 0) || 1;
+  const firstProductName = firstItem?.productName || "Masala Pack";
+
+  const s = String(order.status || "").toLowerCase();
+  const isDelivered = s.includes("deliver") || s.includes("complete");
+  const isCancelled = s.includes("cancel") || s.includes("fail");
+  const statusLabel = isDelivered ? "Delivered" : isCancelled ? "Cancelled" : s.includes("transit") || s.includes("ship") ? "In Transit" : s.includes("packed") || s.includes("process") ? "Processing" : "Confirmed";
+  const statusColor = isDelivered ? "text-emerald-600" : isCancelled ? "text-rose-500" : "text-amber-600";
+
   return (
     <motion.article
-      initial={{ opacity: 0, y: 15 }}
+      initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
-      whileHover={{ y: -3, boxShadow: "0 20px 40px rgba(68, 35, 13, 0.1)" }}
-      className="overflow-hidden rounded-3xl border border-truffle/10 bg-white/75 shadow-luxe backdrop-blur-xl transition-all duration-300"
+      className="overflow-hidden rounded-2xl border border-truffle/10 bg-white shadow-sm transition-all duration-300"
     >
-      {/* Card Content (Always Visible) */}
-      <div className="p-5 sm:p-6 space-y-4">
-        {/* Row 1: Header Info */}
-        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between border-b border-truffle/5 pb-4">
-          <div>
-            <span className="font-display text-lg text-truffle tracking-wide font-semibold">{order.orderId}</span>
-            <p className="text-[11px] text-truffle/65 mt-0.5">{formatDate(order.createdAt)}</p>
-          </div>
-
-          <div className="flex flex-wrap items-center gap-2">
-            <div className={`px-3 py-1 rounded-full border text-[11px] font-bold tracking-wide shadow-sm flex items-center gap-1.5 ${getStatusBadgeStyle(order.status)}`}>
-              <span className={`w-1.5 h-1.5 rounded-full ${
-                order.status?.toLowerCase().includes("delivered") ? "bg-emerald-500" : "bg-amber animate-pulse"
-              }`} />
-              <span>{order.status || "Order confirmed"}</span>
+      {/* Main Row */}
+      <div className="flex items-center gap-4 px-4 sm:px-6 py-4 sm:py-5">
+        {/* Product Thumbnail */}
+        <div className="shrink-0">
+          {thumbImg ? (
+            <img
+              src={thumbImg}
+              alt={firstProductName}
+              className="w-14 h-14 sm:w-16 sm:h-16 rounded-2xl object-cover border border-truffle/10"
+            />
+          ) : (
+            <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-2xl bg-almond/50 border border-truffle/10 flex items-center justify-center text-2xl">
+              🌿
             </div>
-            <div className="text-xs text-truffle/80">
-              <span className="font-semibold">{order.address?.city ? `${order.address.city}, ${order.address.state}` : "Shipping Location"}</span>
-            </div>
-          </div>
+          )}
         </div>
 
-        {/* Row 2: Product Previews & Total */}
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 py-2">
-          {/* Product List instead of photos */}
-          <div className="flex flex-col gap-1.5 py-1">
-            {order.items?.map((item, idx) => (
-              <div key={idx} className="text-xs text-truffle font-medium flex items-center gap-2">
-                <span className="w-1.5 h-1.5 rounded-full bg-amber shrink-0" />
-                <span className="font-semibold text-cocoa">{item.productName}</span>
-                <span className="text-[10px] text-cocoa bg-almond px-1.5 py-0.5 rounded font-black shrink-0">x{item.quantity}</span>
-              </div>
-            ))}
-          </div>
-
-          {/* Pricing / Total Paid */}
-          <div className="flex sm:flex-col items-center sm:items-end justify-between sm:justify-center gap-1">
-            <span className="text-[10px] font-bold uppercase tracking-widest text-truffle/55">Total Paid</span>
-            <span className="text-xl font-black text-cocoa leading-tight">{formatINR(order.grandTotal || order.total || order.totalAmount || 0)}</span>
-          </div>
+        {/* Order Info */}
+        <div className="flex-1 min-w-0 space-y-0.5">
+          <h4 className="text-sm font-black text-espresso tracking-wide">{order.orderId}</h4>
+          <p className="text-xs font-bold text-truffle/80 truncate">{firstProductName}</p>
+          <p className="text-[11px] font-semibold text-truffle/50">
+            {formatDate(order.createdAt)} &bull; {totalItems} {totalItems === 1 ? "Item" : "Items"}
+          </p>
         </div>
 
-        {/* Row 3: Action Buttons */}
-        <div className="flex flex-wrap items-center justify-between gap-3 border-t border-truffle/5 pt-4">
-          <Link
-            to={`/order/${order.orderId}`}
-            className="text-xs font-bold text-cocoa hover:text-truffle hover:underline transition flex items-center gap-1"
+        {/* Price + Status + Button */}
+        <div className="flex items-center gap-3 sm:gap-5 shrink-0">
+          <div className="text-right space-y-0.5">
+            <p className="text-sm font-black text-espresso">{formatINR(order.grandTotal || order.total || order.totalAmount || 0)}</p>
+            <p className={`text-[11px] font-bold ${statusColor}`}>{statusLabel}</p>
+          </div>
+
+          <button
+            onClick={() => onToggleExpand(order.orderId)}
+            className="hidden sm:block border border-cocoa/30 hover:bg-almond/30 hover:border-cocoa/50 text-[11px] font-black uppercase tracking-wider text-cocoa px-4 py-2 rounded-xl transition-all duration-150 cursor-pointer whitespace-nowrap"
           >
-            Invoice Receipt &rarr;
-          </Link>
-
-          <div className="flex flex-wrap items-center gap-2.5">
-            <button
-              onClick={() => handleBuyAgain(order)}
-              disabled={buyAgainId === order.orderId}
-              className="rounded-full bg-white border border-truffle/20 hover:bg-almond px-4 h-8 text-[11px] font-bold uppercase tracking-wider text-truffle transition flex items-center gap-1.5 shadow-sm cursor-pointer"
+            View Details
+          </button>
+          {/* Mobile chevron */}
+          <button
+            onClick={() => onToggleExpand(order.orderId)}
+            className="sm:hidden w-8 h-8 flex items-center justify-center rounded-xl border border-truffle/15 hover:bg-almond/30 transition cursor-pointer"
+          >
+            <motion.svg
+              animate={{ rotate: isExpanded ? 180 : 0 }}
+              className="h-4 w-4 text-cocoa"
+              fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5"
             >
-              {buyAgainId === order.orderId ? (
-                <>
-                  <svg className="animate-spin h-3.5 w-3.5 text-truffle" fill="none" viewBox="0 0 24 24">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                  </svg>
-                  <span>Adding...</span>
-                </>
-              ) : (
-                <>
-                  <svg className="h-3.5 w-3.5 text-cocoa" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 1121.21 8H18.2" />
-                  </svg>
-                  <span>Buy Again</span>
-                </>
-              )}
-            </button>
-
-            <button
-              onClick={() => handleDownloadInvoice(order.orderId, order.invoiceNumber || order.orderId)}
-              disabled={downloadingId === order.orderId}
-              className="rounded-full bg-white border border-truffle/20 hover:bg-almond px-4 h-8 text-[11px] font-bold uppercase tracking-wider text-truffle transition flex items-center gap-1.5 shadow-sm cursor-pointer"
-            >
-              {downloadingId === order.orderId ? (
-                <>
-                  <svg className="animate-spin h-3.5 w-3.5 text-truffle" fill="none" viewBox="0 0 24 24">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                  </svg>
-                  <span>Downloading...</span>
-                </>
-              ) : (
-                <>
-                  <svg className="h-3.5 w-3.5 text-cocoa" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-                  </svg>
-                  <span>Invoice</span>
-                </>
-              )}
-            </button>
-
-            <button
-              onClick={() => onToggleExpand(order.orderId)}
-              className="rounded-full bg-truffle text-white hover:bg-espresso px-4.5 h-8 border border-transparent text-[11px] font-bold uppercase tracking-wider transition flex items-center gap-1.5 shadow-md cursor-pointer"
-            >
-              <span>Track Order</span>
-              <motion.svg
-                animate={{ rotate: isExpanded ? 180 : 0 }}
-                className="h-3.5 w-3.5 text-white"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-                strokeWidth="3"
-              >
-                <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
-              </motion.svg>
-            </button>
-          </div>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+            </motion.svg>
+          </button>
         </div>
       </div>
 
-      {/* Expandable Order Detail panel */}
+      {/* Expandable Detail Panel */}
       <AnimatePresence initial={false}>
         {isExpanded && (
           <motion.div
@@ -444,11 +393,11 @@ function OrderCard({
             animate={{ height: "auto", opacity: 1 }}
             exit={{ height: 0, opacity: 0 }}
             transition={{ duration: 0.3, ease: "easeInOut" }}
-            className="border-t border-truffle/10 bg-white/40 overflow-hidden"
+            className="border-t border-truffle/8 bg-porcelain/40 overflow-hidden"
           >
-            <div className="p-5 sm:p-6 space-y-6">
+            <div className="p-4 sm:p-6 space-y-5">
               {/* Delivery tracker timeline progress */}
-              <div className="bg-porcelain/50 border border-truffle/5 rounded-2xl p-5 shadow-inner">
+              <div className="bg-white/70 border border-truffle/8 rounded-2xl p-4 sm:p-5 shadow-inner">
                 <h4 className="text-[11px] font-bold uppercase tracking-widest text-truffle/50 mb-3">Delivery Progress</h4>
                 <ProgressTimeline status={order.status} />
                 <div className="mt-4 pt-3 border-t border-truffle/5 text-xs text-truffle/75 flex justify-between">
@@ -460,25 +409,60 @@ function OrderCard({
               {/* Item breakdowns */}
               <div>
                 <h4 className="text-[11px] font-bold uppercase tracking-widest text-truffle/50 mb-3">Ordered Items</h4>
-                <div className="space-y-3">
+                <div className="space-y-2">
                   {order.items?.map((item) => {
-                    const prodInfo = getProductById(item.productId);
+                    const info = getProductById(item.productId);
                     return (
-                      <div key={item.productId} className="flex justify-between items-center text-sm bg-white/80 p-3.5 rounded-2xl border border-truffle/5 shadow-sm">
-                        <div className="flex items-center gap-3.5 max-w-[80%]">
-                          <div className="w-10 h-10 rounded-xl bg-almond/40 border border-truffle/10 flex items-center justify-center text-cocoa font-bold text-xs shrink-0">
-                            🌿
-                          </div>
+                      <div key={item.productId} className="flex justify-between items-center text-sm bg-white/80 p-3 sm:p-3.5 rounded-xl border border-truffle/5 shadow-sm">
+                        <div className="flex items-center gap-3 max-w-[75%]">
+                          {info?.image ? (
+                            <img src={info.image} alt={item.productName} className="w-9 h-9 rounded-lg object-cover border border-truffle/10 shrink-0" />
+                          ) : (
+                            <div className="w-9 h-9 rounded-lg bg-almond/40 border border-truffle/10 flex items-center justify-center text-base shrink-0">🌿</div>
+                          )}
                           <div>
-                            <p className="font-bold text-truffle leading-snug">{item.productName}</p>
-                            <p className="text-xs text-truffle/55 mt-0.5">Quantity: x{item.quantity} | {formatINR(item.unitPrice)} each</p>
+                            <p className="font-bold text-truffle text-xs leading-snug">{item.productName}</p>
+                            <p className="text-[10px] text-truffle/55 mt-0.5">Qty: x{item.quantity} &bull; {formatINR(item.unitPrice)} each</p>
                           </div>
                         </div>
-                        <span className="font-bold text-cocoa">{formatINR(item.subtotal)}</span>
+                        <span className="font-bold text-cocoa text-sm shrink-0">{formatINR(item.subtotal)}</span>
                       </div>
                     );
                   })}
                 </div>
+              </div>
+
+              {/* Action Buttons */}
+              <div className="flex flex-wrap items-center gap-2.5 pt-1 border-t border-truffle/5">
+                <Link
+                  to={`/order/${order.orderId}`}
+                  className="text-xs font-bold text-cocoa hover:text-truffle hover:underline transition flex items-center gap-1"
+                >
+                  Invoice Receipt &rarr;
+                </Link>
+                <div className="flex-1" />
+                <button
+                  onClick={() => handleBuyAgain(order)}
+                  disabled={buyAgainId === order.orderId}
+                  className="rounded-full bg-white border border-truffle/20 hover:bg-almond px-4 h-8 text-[11px] font-bold uppercase tracking-wider text-truffle transition flex items-center gap-1.5 shadow-sm cursor-pointer"
+                >
+                  {buyAgainId === order.orderId ? (
+                    <><svg className="animate-spin h-3.5 w-3.5" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" /></svg><span>Adding...</span></>
+                  ) : (
+                    <><svg className="h-3.5 w-3.5 text-cocoa" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5"><path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 1121.21 8H18.2" /></svg><span>Buy Again</span></>
+                  )}
+                </button>
+                <button
+                  onClick={() => handleDownloadInvoice(order.orderId, order.invoiceNumber || order.orderId)}
+                  disabled={downloadingId === order.orderId}
+                  className="rounded-full bg-white border border-truffle/20 hover:bg-almond px-4 h-8 text-[11px] font-bold uppercase tracking-wider text-truffle transition flex items-center gap-1.5 shadow-sm cursor-pointer"
+                >
+                  {downloadingId === order.orderId ? (
+                    <><svg className="animate-spin h-3.5 w-3.5" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" /></svg><span>Downloading...</span></>
+                  ) : (
+                    <><svg className="h-3.5 w-3.5 text-cocoa" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5"><path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg><span>Invoice</span></>
+                  )}
+                </button>
               </div>
             </div>
           </motion.div>
@@ -502,9 +486,6 @@ function MortarPestleIllustration() {
       <path d="M40,85 L60,85" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" />
       {/* Pestle inside the bowl */}
       <path d="M45,30 L65,65" stroke="currentColor" strokeWidth="3" strokeLinecap="round" />
-      {/* Spices / aroma waves rising */}
-      <path d="M30,45 C28,35 32,25 30,15" stroke="currentColor" strokeWidth="1" strokeDasharray="2,2" />
-      <path d="M70,45 C72,35 68,25 70,15" stroke="currentColor" strokeWidth="1" strokeDasharray="2,2" />
       {/* Floating leaves */}
       <path d="M40,20 Q45,15 50,20 Q42,22 40,20 Z" fill="currentColor" />
       <path d="M60,25 Q63,20 66,25 Q60,27 60,25 Z" fill="currentColor" />
@@ -513,6 +494,7 @@ function MortarPestleIllustration() {
 }
 
 // Premium background decorative spice leaf outlines and traditional motifs at <3% opacity
+
 function LuxuryBackgroundMotifs() {
   return (
     <div className="absolute inset-0 pointer-events-none overflow-hidden -z-20 select-none opacity-[0.02]">
