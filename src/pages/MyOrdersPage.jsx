@@ -1166,7 +1166,7 @@ export default function MyOrdersPage({ onAddMultipleToCart }) {
               <span>🔒</span> Sync & Secure Your Order History
             </h3>
             <p className="text-xs text-truffle/80 leading-relaxed font-body">
-              Continue with your Google account to automatically track your orders, save multiple shipping addresses, download PDF receipts instantly, and unlock future loyalty rewards.
+              Sign in with Google to track orders, view history, and download invoices.
             </p>
           </div>
           <div className="flex flex-col items-center gap-3 shrink-0 relative z-10 w-full sm:w-auto">
