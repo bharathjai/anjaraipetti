@@ -390,6 +390,180 @@ export default function AdminOrdersPage() {
   };
 
   const [activeTab, setActiveTab] = useState("orders");
+  const [chartMode, setChartMode] = useState("revenue"); // "revenue" or "orders"
+  const [hoveredBarIndex, setHoveredBarIndex] = useState(null);
+
+  // Calculate business statistics
+  const stats = useMemo(() => {
+    const totalOrdersCount = orders.length;
+    const nonCancelledOrders = orders.filter(o => o.status !== "Cancelled");
+    
+    const totalRevenue = nonCancelledOrders.reduce((sum, o) => sum + (o.grandTotal || o.total || 0), 0);
+    const averageOrderValue = nonCancelledOrders.length > 0 ? totalRevenue / nonCancelledOrders.length : 0;
+    
+    const uniqueCustomers = new Set(orders.map(o => o.customer?.phone || o.customer?.email).filter(Boolean)).size;
+    
+    // Status breakdown
+    const statusCounts = {
+      "Order confirmed": 0,
+      "Packed": 0,
+      "Shipped": 0,
+      "Delivered": 0,
+      "Cancelled": 0
+    };
+    orders.forEach(o => {
+      const status = o.status || "Order confirmed";
+      if (statusCounts[status] !== undefined) {
+        statusCounts[status]++;
+      } else {
+        statusCounts["Order confirmed"]++;
+      }
+    });
+
+    // Monthly data
+    const monthlyMap = {};
+    orders.forEach(o => {
+      if (!o.createdAt) return;
+      const date = new Date(o.createdAt);
+      const year = date.getFullYear();
+      const month = date.getMonth(); // 0-11
+      const key = `${year}-${String(month + 1).padStart(2, "0")}`; // YYYY-MM
+      const label = date.toLocaleDateString("en-IN", { month: "short", year: "2-digit" });
+      
+      if (!monthlyMap[key]) {
+        monthlyMap[key] = { key, label, revenue: 0, count: 0, orderVolume: 0 };
+      }
+      
+      monthlyMap[key].orderVolume += 1;
+      if (o.status !== "Cancelled") {
+        monthlyMap[key].revenue += (o.grandTotal || o.total || 0);
+        monthlyMap[key].count += 1;
+      }
+    });
+    
+    const monthlyData = Object.values(monthlyMap).sort((a, b) => a.key.localeCompare(b.key));
+    
+    // Top products
+    const productMap = {};
+    nonCancelledOrders.forEach(o => {
+      const items = o.items || [];
+      items.forEach(item => {
+        const pid = item.productId;
+        if (!pid) return;
+        if (!productMap[pid]) {
+          productMap[pid] = {
+            id: pid,
+            name: item.productName || pid,
+            quantity: 0,
+            revenue: 0
+          };
+        }
+        productMap[pid].quantity += (item.quantity || 0);
+        productMap[pid].revenue += (item.subtotal || 0);
+      });
+    });
+    
+    const topProducts = Object.values(productMap)
+      .sort((a, b) => b.revenue - a.revenue)
+      .slice(0, 5);
+
+    // Payment methods
+    let codCount = 0;
+    let razorpayCount = 0;
+    nonCancelledOrders.forEach(o => {
+      const method = o.payment?.method || "cod";
+      if (method.toLowerCase() === "razorpay") {
+        razorpayCount++;
+      } else {
+        codCount++;
+      }
+    });
+    const paidOrdersCount = codCount + razorpayCount;
+    const paymentStats = {
+      cod: codCount,
+      razorpay: razorpayCount,
+      codPercent: paidOrdersCount > 0 ? Math.round((codCount / paidOrdersCount) * 100) : 0,
+      razorpayPercent: paidOrdersCount > 0 ? Math.round((razorpayCount / paidOrdersCount) * 100) : 0
+    };
+
+    // Geo breakdown
+    const locationMap = {};
+    nonCancelledOrders.forEach(o => {
+      const city = o.address?.city || "Unknown";
+      const state = o.address?.state || "Unknown";
+      const key = `${city}, ${state}`;
+      if (!locationMap[key]) {
+        locationMap[key] = { label: key, count: 0, revenue: 0 };
+      }
+      locationMap[key].count++;
+      locationMap[key].revenue += (o.grandTotal || o.total || 0);
+    });
+    const topLocations = Object.values(locationMap)
+      .sort((a, b) => b.revenue - a.revenue)
+      .slice(0, 5);
+
+    return {
+      totalOrdersCount,
+      totalRevenue,
+      averageOrderValue,
+      uniqueCustomers,
+      statusCounts,
+      monthlyData,
+      topProducts,
+      paymentStats,
+      topLocations
+    };
+  }, [orders]);
+
+  const exportOrdersToCSV = () => {
+    if (orders.length === 0) return;
+    const headers = [
+      "Order ID", 
+      "Date", 
+      "Customer Name", 
+      "Phone", 
+      "Email", 
+      "City", 
+      "State", 
+      "Pincode", 
+      "Payment Method", 
+      "Payment Status", 
+      "Status", 
+      "Subtotal", 
+      "Grand Total"
+    ];
+    const rows = orders.map((o) => [
+      o.orderId,
+      o.createdAt ? new Date(o.createdAt).toISOString().split("T")[0] : "",
+      o.customer?.name || "",
+      o.customer?.phone || "",
+      o.customer?.email || "",
+      o.address?.city || "",
+      o.address?.state || "",
+      o.address?.pincode || "",
+      o.payment?.method || "",
+      o.payment?.status || "",
+      o.status || "Order confirmed",
+      o.subtotal || 0,
+      o.grandTotal || o.total || 0
+    ]);
+    
+    const csvContent = [
+      headers.join(","),
+      ...rows.map(r => r.map(val => `"${String(val).replace(/"/g, '""')}"`).join(","))
+    ].join("\n");
+    
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.setAttribute("href", url);
+    link.setAttribute("download", `anjaraipetti_orders_report_${new Date().toISOString().split("T")[0]}.csv`);
+    link.style.visibility = "hidden";
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
   const [adminDeliveryChargeEnabled, setAdminDeliveryChargeEnabled] = useState(true);
   const [updatingDeliverySetting, setUpdatingDeliverySetting] = useState(false);
   
@@ -697,7 +871,7 @@ export default function AdminOrdersPage() {
         <div>
           <p className="text-xs uppercase tracking-[0.3em] text-cocoa/70">Admin Panel</p>
           <h1 className="mt-2 font-display text-5xl text-espresso">
-            {activeTab === "orders" ? "All Orders" : "Manage Prices"}
+            {activeTab === "orders" ? "All Orders" : activeTab === "stats" ? "Business Insights" : "Manage Prices"}
           </h1>
         </div>
         <button
@@ -721,6 +895,17 @@ export default function AdminOrdersPage() {
           }`}
         >
           Orders
+        </button>
+        <button
+          type="button"
+          onClick={() => setActiveTab("stats")}
+          className={`pb-2 text-sm font-semibold uppercase tracking-[0.2em] transition-all border-b-2 ${
+            activeTab === "stats"
+              ? "border-cocoa text-cocoa font-bold"
+              : "border-transparent text-truffle/60 hover:text-truffle"
+          }`}
+        >
+          Stats
         </button>
         <button
           type="button"
@@ -985,6 +1170,435 @@ export default function AdminOrdersPage() {
               </motion.article>
             );
           })}
+        </div>
+      ) : activeTab === "stats" ? (
+        <div className="space-y-8">
+          {/* Overview Cards */}
+          <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
+            {/* Revenue Card */}
+            <motion.div
+              initial={{ opacity: 0, y: 15 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="rounded-3xl border border-truffle/10 bg-white/75 p-6 shadow-luxe backdrop-blur-xl"
+            >
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold uppercase tracking-wider text-truffle/55">Net Revenue</span>
+                <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-amber-500/10 text-amber">
+                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="h-5 w-5">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M15 8.25H9m6 3H9m3 1.5v-7.5M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
+                  </svg>
+                </div>
+              </div>
+              <h2 className="mt-4 font-display text-3xl font-bold text-espresso">{formatINR(stats.totalRevenue)}</h2>
+              <p className="mt-1 text-xs text-truffle/70">Excluding cancelled orders</p>
+            </motion.div>
+
+            {/* Total Orders Card */}
+            <motion.div
+              initial={{ opacity: 0, y: 15 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.05 }}
+              className="rounded-3xl border border-truffle/10 bg-white/75 p-6 shadow-luxe backdrop-blur-xl"
+            >
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold uppercase tracking-wider text-truffle/55">Total Orders</span>
+                <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-cocoa/10 text-cocoa">
+                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="h-5 w-5">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 10.5V6a3.75 3.75 0 1 0-7.5 0v4.5m11.356-1.993 1.263 12c.07.665-.45 1.243-1.119 1.243H4.25a1.125 1.125 0 0 1-1.12-1.243l1.264-12A1.125 1.125 0 0 1 5.513 7.5h12.974c.576 0 1.059.435 1.119 1.007ZM8.625 10.5a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Zm7.5 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Z" />
+                  </svg>
+                </div>
+              </div>
+              <h2 className="mt-4 font-display text-3xl font-bold text-espresso">{stats.totalOrdersCount}</h2>
+              <p className="mt-1 text-xs text-truffle/70">
+                {stats.statusCounts["Delivered"]} delivered · {stats.statusCounts["Cancelled"]} cancelled
+              </p>
+            </motion.div>
+
+            {/* Average Basket Value Card */}
+            <motion.div
+              initial={{ opacity: 0, y: 15 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.1 }}
+              className="rounded-3xl border border-truffle/10 bg-white/75 p-6 shadow-luxe backdrop-blur-xl"
+            >
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold uppercase tracking-wider text-truffle/55">Avg. Order Value</span>
+                <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-emerald-500/10 text-emerald-800">
+                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="h-5 w-5">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 6a7.5 7.5 0 1 0 7.5 7.5h-7.5V6Z" />
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 10.5H21A7.5 7.5 0 0 0 13.5 3v7.5Z" />
+                  </svg>
+                </div>
+              </div>
+              <h2 className="mt-4 font-display text-3xl font-bold text-espresso">{formatINR(stats.averageOrderValue)}</h2>
+              <p className="mt-1 text-xs text-truffle/70">Per active order</p>
+            </motion.div>
+
+            {/* Unique Customers Card */}
+            <motion.div
+              initial={{ opacity: 0, y: 15 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.15 }}
+              className="rounded-3xl border border-truffle/10 bg-white/75 p-6 shadow-luxe backdrop-blur-xl"
+            >
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold uppercase tracking-wider text-truffle/55">Unique Customers</span>
+                <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-purple-500/10 text-purple-700">
+                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="h-5 w-5">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M18 18.72a9.094 9.094 0 0 0 3.741-.479 3 3 0 0 0-4.682-2.72m.94 3.198.001.031c0 .225-.012.447-.037.666A11.944 11.944 0 0 1 12 21c-2.17 0-4.207-.576-5.963-1.584A6.062 6.062 0 0 1 6 18.719m12 0a5.971 5.971 0 0 0-.941-3.197m0 0A5.995 5.995 0 0 0 12 12.75a5.995 5.995 0 0 0-5.058 2.772m0 0a3 3 0 0 0-4.681 2.72 8.986 8.986 0 0 0 3.74.477m.94-3.197a5.971 5.971 0 0 0-.94 3.197M15 6.75a3 3 0 1 1-6 0 3 3 0 0 1 6 0Zm6 3a2.25 2.25 0 1 1-4.5 0 2.25 2.25 0 0 1 4.5 0Zm-13.5 0a2.25 2.25 0 1 1-4.5 0 2.25 2.25 0 0 1 4.5 0Z" />
+                  </svg>
+                </div>
+              </div>
+              <h2 className="mt-4 font-display text-3xl font-bold text-espresso">{stats.uniqueCustomers}</h2>
+              <p className="mt-1 text-xs text-truffle/70">Based on contact details</p>
+            </motion.div>
+          </div>
+
+          {/* Action Row */}
+          <div className="flex justify-end">
+            <button
+              type="button"
+              onClick={exportOrdersToCSV}
+              className="flex items-center gap-2 rounded-xl bg-cocoa hover:bg-cocoa/90 px-6 py-3 text-xs font-bold uppercase tracking-widest text-white shadow-md transition"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="h-4 w-4">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M16.5 12 12 16.5m0 0L7.5 12m4.5 4.5V3" />
+              </svg>
+              Export Report to CSV
+            </button>
+          </div>
+
+          {/* Middle Analytics Grid */}
+          <div className="grid gap-8 lg:grid-cols-3">
+            {/* Chart Card */}
+            <div className="lg:col-span-2 rounded-3xl border border-truffle/10 bg-white/75 p-6 shadow-luxe backdrop-blur-xl flex flex-col justify-between">
+              <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
+                <div>
+                  <h3 className="font-display text-2xl font-bold text-espresso">Monthly Trends</h3>
+                  <p className="text-xs text-truffle/70">Monthly order volume and revenue growth</p>
+                </div>
+                
+                {/* Toggle Mode */}
+                <div className="inline-flex rounded-lg bg-truffle/10 p-0.5">
+                  <button
+                    type="button"
+                    onClick={() => setChartMode("revenue")}
+                    className={`rounded-md px-3.5 py-1.5 text-xs font-semibold uppercase tracking-wider transition ${
+                      chartMode === "revenue"
+                        ? "bg-white text-cocoa shadow"
+                        : "text-truffle/60 hover:text-truffle"
+                    }`}
+                  >
+                    Revenue
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setChartMode("orders")}
+                    className={`rounded-md px-3.5 py-1.5 text-xs font-semibold uppercase tracking-wider transition ${
+                      chartMode === "orders"
+                        ? "bg-white text-cocoa shadow"
+                        : "text-truffle/60 hover:text-truffle"
+                    }`}
+                  >
+                    Orders
+                  </button>
+                </div>
+              </div>
+
+              {stats.monthlyData.length === 0 ? (
+                <div className="flex min-h-[260px] items-center justify-center border-2 border-dashed border-truffle/15 rounded-2xl">
+                  <p className="text-sm text-truffle/55">No historical order data available yet.</p>
+                </div>
+              ) : (
+                <div className="relative w-full pt-4">
+                  {/* Custom Interactive SVG Chart */}
+                  <svg viewBox="0 0 600 320" className="w-full h-auto overflow-visible">
+                    <defs>
+                      <linearGradient id="barGradient" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stopColor="#d0843e" />
+                        <stop offset="100%" stopColor="#6f3f1e" />
+                      </linearGradient>
+                      <linearGradient id="barGradientHover" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stopColor="#e6a467" />
+                        <stop offset="100%" stopColor="#d0843e" />
+                      </linearGradient>
+                    </defs>
+
+                    {/* Horizontal Gridlines & Y-Axis Labels */}
+                    {[0, 0.25, 0.5, 0.75, 1].map((ratio, index) => {
+                      const yVal = 20 + 260 * (1 - ratio);
+                      const maxVal = chartMode === "revenue" 
+                        ? Math.max(...stats.monthlyData.map(d => d.revenue), 1)
+                        : Math.max(...stats.monthlyData.map(d => d.orderVolume), 1);
+                      const labelValue = Math.round(maxVal * ratio);
+                      return (
+                        <g key={index} className="opacity-40">
+                          <line
+                            x1="60"
+                            y1={yVal}
+                            x2="570"
+                            y2={yVal}
+                            stroke="#4b2c1a"
+                            strokeWidth="1"
+                            strokeDasharray="4 4"
+                          />
+                          <text
+                            x="50"
+                            y={yVal + 4}
+                            textAnchor="end"
+                            fontSize="10"
+                            fill="#4b2c1a"
+                            fontWeight="600"
+                          >
+                            {chartMode === "revenue" ? `₹${labelValue}` : labelValue}
+                          </text>
+                        </g>
+                      );
+                    })}
+
+                    {/* Render Bars */}
+                    {stats.monthlyData.map((item, index) => {
+                      const numBars = stats.monthlyData.length;
+                      const colWidth = 510 / numBars;
+                      const barWidth = Math.max(16, Math.floor(colWidth * 0.5));
+                      const x = 60 + index * colWidth + (colWidth - barWidth) / 2;
+                      
+                      const val = chartMode === "revenue" ? item.revenue : item.orderVolume;
+                      const maxVal = chartMode === "revenue" 
+                        ? Math.max(...stats.monthlyData.map(d => d.revenue), 1)
+                        : Math.max(...stats.monthlyData.map(d => d.orderVolume), 1);
+                      
+                      const barHeight = Math.max(8, (val / maxVal) * 260);
+                      const y = 20 + 260 - barHeight;
+
+                      const isHovered = hoveredBarIndex === index;
+
+                      return (
+                        <g key={item.key}>
+                          {/* Invisible larger hover trigger area */}
+                          <rect
+                            x={60 + index * colWidth}
+                            y="10"
+                            width={colWidth}
+                            height="280"
+                            fill="transparent"
+                            style={{ cursor: "pointer" }}
+                            onMouseEnter={() => setHoveredBarIndex(index)}
+                            onMouseLeave={() => setHoveredBarIndex(null)}
+                          />
+
+                          {/* Visual Bar */}
+                          <rect
+                            x={x}
+                            y={y}
+                            width={barWidth}
+                            height={barHeight}
+                            rx={Math.min(6, barWidth / 2)}
+                            fill={isHovered ? "url(#barGradientHover)" : "url(#barGradient)"}
+                            className="transition-all duration-300"
+                          />
+
+                          {/* X-Axis Label */}
+                          <text
+                            x={60 + index * colWidth + colWidth / 2}
+                            y="295"
+                            textAnchor="middle"
+                            fontSize="10"
+                            fill="#4b2c1a"
+                            fontWeight="700"
+                          >
+                            {item.label}
+                          </text>
+                        </g>
+                      );
+                    })}
+
+                    {/* X-Axis Line */}
+                    <line x1="60" y1="280" x2="570" y2="280" stroke="#4b2c1a" strokeWidth="1.5" />
+                  </svg>
+
+                  {/* Absolute Tooltip */}
+                  {hoveredBarIndex !== null && stats.monthlyData[hoveredBarIndex] && (
+                    <div
+                      className="absolute z-10 pointer-events-none rounded-xl bg-espresso text-white p-3 text-xs shadow-xl transition-all duration-150 border border-porcelain/15"
+                      style={{
+                        left: `${((60 + hoveredBarIndex * (510 / stats.monthlyData.length) + (510 / stats.monthlyData.length) / 2) / 600) * 100}%`,
+                        top: `${(20 + 260 - (
+                          (chartMode === "revenue" 
+                            ? stats.monthlyData[hoveredBarIndex].revenue 
+                            : stats.monthlyData[hoveredBarIndex].orderVolume
+                          ) / (
+                            chartMode === "revenue" 
+                              ? Math.max(...stats.monthlyData.map(d => d.revenue), 1) 
+                              : Math.max(...stats.monthlyData.map(d => d.orderVolume), 1)
+                          )
+                        ) * 260) / 320 * 100 - 10}%`,
+                        transform: "translate(-50%, -100%)"
+                      }}
+                    >
+                      <p className="font-bold text-almond">{stats.monthlyData[hoveredBarIndex].label}</p>
+                      <p className="mt-1 font-semibold text-white">
+                        {chartMode === "revenue"
+                          ? `Revenue: ${formatINR(stats.monthlyData[hoveredBarIndex].revenue)}`
+                          : `Orders: ${stats.monthlyData[hoveredBarIndex].orderVolume} orders`
+                        }
+                      </p>
+                      {chartMode === "revenue" && (
+                        <p className="text-[10px] text-almond/75">
+                          Volume: {stats.monthlyData[hoveredBarIndex].count} active / {stats.monthlyData[hoveredBarIndex].orderVolume} total
+                        </p>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* Order Status Card */}
+            <div className="rounded-3xl border border-truffle/10 bg-white/75 p-6 shadow-luxe backdrop-blur-xl flex flex-col justify-between">
+              <div>
+                <h3 className="font-display text-2xl font-bold text-espresso">Order Statuses</h3>
+                <p className="text-xs text-truffle/70">Breakdown of orders in processing cycle</p>
+              </div>
+
+              <div className="mt-6 space-y-4">
+                {[
+                  { name: "Delivered", color: "bg-emerald-500", text: "text-emerald-800", bg: "bg-emerald-100/50" },
+                  { name: "Shipped", color: "bg-blue-500", text: "text-blue-800", bg: "bg-blue-100/50" },
+                  { name: "Packed", color: "bg-indigo-500", text: "text-indigo-800", bg: "bg-indigo-100/50" },
+                  { name: "Order confirmed", color: "bg-amber-500", text: "text-amber-800", bg: "bg-amber-100/50" },
+                  { name: "Cancelled", color: "bg-red-500", text: "text-red-800", bg: "bg-red-100/50" }
+                ].map((st) => {
+                  const count = stats.statusCounts[st.name] || 0;
+                  const total = stats.totalOrdersCount || 1;
+                  const percent = Math.round((count / total) * 100);
+
+                  return (
+                    <div key={st.name} className="space-y-1.5">
+                      <div className="flex items-center justify-between text-xs font-semibold text-truffle">
+                        <span className="flex items-center gap-2">
+                          <span className={`h-2.5 w-2.5 rounded-full ${st.color}`} />
+                          {st.name}
+                        </span>
+                        <span className="font-mono text-truffle/80">
+                          {count} ({percent}%)
+                        </span>
+                      </div>
+                      <div className="h-2 w-full rounded-full bg-truffle/10 overflow-hidden">
+                        <div className={`h-full rounded-full ${st.color}`} style={{ width: `${percent}%` }} />
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+
+              <div className="mt-6 pt-4 border-t border-truffle/10 text-center text-xs text-truffle/60">
+                Out of {stats.totalOrdersCount} total orders registered
+              </div>
+            </div>
+          </div>
+
+          {/* Bottom Analytics Grid */}
+          <div className="grid gap-8 lg:grid-cols-3">
+            {/* Top Products Card (Premium) */}
+            <div className="lg:col-span-2 rounded-3xl border border-truffle/10 bg-white/75 p-6 shadow-luxe backdrop-blur-xl">
+              <h3 className="font-display text-2xl font-bold text-espresso">Top Selling Products</h3>
+              <p className="text-xs text-truffle/70 mb-6">Best performers by total revenue share</p>
+
+              {stats.topProducts.length === 0 ? (
+                <p className="text-sm text-truffle/60 text-center py-12">No products sold yet.</p>
+              ) : (
+                <div className="space-y-4">
+                  {stats.topProducts.map((p, idx) => {
+                    const topRevenue = stats.topProducts[0]?.revenue || 1;
+                    const relativePct = Math.round((p.revenue / topRevenue) * 100);
+
+                    return (
+                      <div key={p.id} className="group relative flex items-center justify-between gap-4 p-3 rounded-2xl hover:bg-truffle/5 transition-colors">
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs font-bold text-cocoa/80 font-mono">#{idx + 1}</span>
+                            <h4 className="font-semibold text-sm text-espresso truncate">{p.name}</h4>
+                          </div>
+                          
+                          {/* Relative share bar indicator */}
+                          <div className="mt-2 h-1.5 w-full max-w-xs rounded-full bg-truffle/5 overflow-hidden">
+                            <div className="h-full rounded-full bg-amber" style={{ width: `${relativePct}%` }} />
+                          </div>
+                        </div>
+
+                        <div className="text-right shrink-0">
+                          <p className="font-bold text-sm text-truffle">{formatINR(p.revenue)}</p>
+                          <p className="text-[11px] font-semibold text-truffle/60">{p.quantity} units sold</p>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+
+            {/* Geography & Payment Breakdowns Card */}
+            <div className="rounded-3xl border border-truffle/10 bg-white/75 p-6 shadow-luxe backdrop-blur-xl flex flex-col justify-between">
+              <div>
+                <h3 className="font-display text-2xl font-bold text-espresso">Payment & Geography</h3>
+                <p className="text-xs text-truffle/70">Source of funds and buyer locales</p>
+              </div>
+
+              {/* Payment Split */}
+              <div className="my-6">
+                <h4 className="text-xs font-bold uppercase tracking-wider text-cocoa/80 mb-3">Payment Methods</h4>
+                <div className="flex h-6 w-full rounded-full bg-truffle/10 overflow-hidden font-bold text-[10px] text-white">
+                  {stats.paymentStats.razorpayPercent > 0 && (
+                    <div 
+                      className="flex items-center justify-center bg-indigo-600 transition-all"
+                      style={{ width: `${stats.paymentStats.razorpayPercent}%` }}
+                      title={`Razorpay: ${stats.paymentStats.razorpay} orders`}
+                    >
+                      {stats.paymentStats.razorpayPercent}% Online
+                    </div>
+                  )}
+                  {stats.paymentStats.codPercent > 0 && (
+                    <div 
+                      className="flex items-center justify-center bg-amber-700 transition-all"
+                      style={{ width: `${stats.paymentStats.codPercent}%` }}
+                      title={`COD: ${stats.paymentStats.cod} orders`}
+                    >
+                      {stats.paymentStats.codPercent}% COD
+                    </div>
+                  )}
+                  {stats.paymentStats.razorpayPercent === 0 && stats.paymentStats.codPercent === 0 && (
+                    <div className="flex w-full items-center justify-center text-truffle/50">No data</div>
+                  )}
+                </div>
+                <div className="mt-2 flex items-center justify-between text-[11px] text-truffle/60">
+                  <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-indigo-600" /> Razorpay ({stats.paymentStats.razorpay})</span>
+                  <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-amber-700" /> COD ({stats.paymentStats.cod})</span>
+                </div>
+              </div>
+
+              {/* Top Cities */}
+              <div className="border-t border-truffle/10 pt-4 flex-1">
+                <h4 className="text-xs font-bold uppercase tracking-wider text-cocoa/80 mb-3">Top Markets (by Sales)</h4>
+                
+                {stats.topLocations.length === 0 ? (
+                  <p className="text-xs text-truffle/55 py-4">No locations recorded.</p>
+                ) : (
+                  <div className="space-y-2">
+                    {stats.topLocations.map((loc) => (
+                      <div key={loc.label} className="flex justify-between items-center text-xs">
+                        <span className="font-semibold text-espresso truncate max-w-[150px]">{loc.label}</span>
+                        <div className="flex gap-3 text-right">
+                          <span className="text-truffle font-bold">{formatINR(loc.revenue)}</span>
+                          <span className="text-truffle/60 text-[10px] font-mono">({loc.count} ord)</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
         </div>
       ) : (
         <>
