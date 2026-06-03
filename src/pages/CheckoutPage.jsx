@@ -36,101 +36,6 @@ const initialForm = {
   paymentMethod: "razorpay"
 };
 
-function MockOrdersCard() {
-  return (
-    <div className="w-full bg-white rounded-3xl border border-truffle/10 p-6 sm:p-8 shadow-luxe select-none relative overflow-hidden">
-      {/* Header */}
-      <div className="flex items-center justify-between border-b border-truffle/5 pb-4 mb-5">
-        <div>
-          <h3 className="font-display text-base sm:text-lg font-bold text-espresso">Your Orders</h3>
-          <p className="text-[10px] sm:text-xs text-truffle/60 mt-0.5 font-medium">All your orders in one place</p>
-        </div>
-        <div className="flex items-center gap-1 text-[10px] sm:text-xs font-black uppercase tracking-wider text-cocoa">
-          <span>View All Orders</span>
-          <span>&rarr;</span>
-        </div>
-      </div>
-
-      {/* Order List */}
-      <div className="space-y-4">
-        {/* Order 1 */}
-        <div className="flex items-center justify-between gap-4 py-1.5 border-b border-truffle/5 last:border-b-0">
-          <div className="flex items-center gap-3.5">
-            <img 
-              src="/images/combo-box.jpg" 
-              alt="Masala Combo Pack" 
-              className="w-12 sm:w-16 h-12 sm:h-16 rounded-2xl object-cover border border-truffle/10 shrink-0" 
-            />
-            <div className="space-y-0.5">
-              <h4 className="text-xs sm:text-sm font-black text-espresso">Order #12345</h4>
-              <p className="text-[11px] sm:text-xs font-bold text-truffle/85">Masala Combo Pack</p>
-              <p className="text-[10px] sm:text-[11px] font-semibold text-truffle/50">12 Feb 2026 &bull; 3 Items</p>
-            </div>
-          </div>
-          <div className="flex items-center gap-4 sm:gap-6 shrink-0">
-            <div className="text-right space-y-0.5">
-              <p className="text-xs sm:text-sm font-black text-espresso">₹285</p>
-              <p className="text-[10px] sm:text-[11px] font-bold text-emerald-600">Delivered</p>
-            </div>
-            <button className="hidden sm:block border border-cocoa/30 hover:bg-almond/20 text-[10px] font-black uppercase tracking-wider text-cocoa px-4 py-2 rounded-xl transition">
-              View Details
-            </button>
-          </div>
-        </div>
-
-        {/* Order 2 */}
-        <div className="flex items-center justify-between gap-4 py-1.5 border-b border-truffle/5 last:border-b-0">
-          <div className="flex items-center gap-3.5">
-            <img 
-              src="/images/sambar-masala.jpg" 
-              alt="Sambar Powder 200g" 
-              className="w-12 sm:w-16 h-12 sm:h-16 rounded-2xl object-cover border border-truffle/10 shrink-0" 
-            />
-            <div className="space-y-0.5">
-              <h4 className="text-xs sm:text-sm font-black text-espresso">Order #12312</h4>
-              <p className="text-[11px] sm:text-xs font-bold text-truffle/85">Sambar Powder 200g</p>
-              <p className="text-[10px] sm:text-[11px] font-semibold text-truffle/50">05 Feb 2026 &bull; 1 Item</p>
-            </div>
-          </div>
-          <div className="flex items-center gap-4 sm:gap-6 shrink-0">
-            <div className="text-right space-y-0.5">
-              <p className="text-xs sm:text-sm font-black text-espresso">₹120</p>
-              <p className="text-[10px] sm:text-[11px] font-bold text-emerald-600">Delivered</p>
-            </div>
-            <button className="hidden sm:block border border-cocoa/30 hover:bg-almond/20 text-[10px] font-black uppercase tracking-wider text-cocoa px-4 py-2 rounded-xl transition">
-              View Details
-            </button>
-          </div>
-        </div>
-
-        {/* Order 3 */}
-        <div className="flex items-center justify-between gap-4 py-1.5 border-b border-truffle/5 last:border-b-0">
-          <div className="flex items-center gap-3.5">
-            <img 
-              src="/images/chilli-powder.jpg" 
-              alt="Chilli Powder 250g" 
-              className="w-12 sm:w-16 h-12 sm:h-16 rounded-2xl object-cover border border-truffle/10 shrink-0" 
-            />
-            <div className="space-y-0.5">
-              <h4 className="text-xs sm:text-sm font-black text-espresso">Order #12098</h4>
-              <p className="text-[11px] sm:text-xs font-bold text-truffle/85">Chilli Powder 250g</p>
-              <p className="text-[10px] sm:text-[11px] font-semibold text-truffle/50">28 Jan 2026 &bull; 2 Items</p>
-            </div>
-          </div>
-          <div className="flex items-center gap-4 sm:gap-6 shrink-0">
-            <div className="text-right space-y-0.5">
-              <p className="text-xs sm:text-sm font-black text-espresso">₹160</p>
-              <p className="text-[10px] sm:text-[11px] font-bold text-amber">In Transit</p>
-            </div>
-            <button className="hidden sm:block border border-cocoa/30 hover:bg-almond/20 text-[10px] font-black uppercase tracking-wider text-cocoa px-4 py-2 rounded-xl transition">
-              View Details
-            </button>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
 
 export default function CheckoutPage({ cartItems, onClearCart, deliveryChargeEnabled = true }) {
   const navigate = useNavigate();
@@ -262,48 +167,38 @@ export default function CheckoutPage({ cartItems, onClearCart, deliveryChargeEna
   if (!user && !bypassLogin) {
     return (
       <section className="relative min-h-[85vh] mx-auto w-full max-w-6xl px-4 sm:px-6 flex items-center justify-center py-12">
-        <div className="w-full bg-gradient-to-br from-white/95 via-almond/30 to-porcelain/90 rounded-[2.5rem] border border-truffle/15 p-8 sm:p-12 shadow-luxe backdrop-blur-xl relative overflow-hidden group">
-          {/* Accent Glow Element */}
+        <div className="w-full max-w-md bg-gradient-to-br from-white/95 via-almond/30 to-porcelain/90 rounded-[2.5rem] border border-truffle/15 p-8 sm:p-12 shadow-luxe backdrop-blur-xl relative overflow-hidden group">
+          {/* Accent Glow */}
           <div className="absolute -right-24 -top-24 w-48 h-48 rounded-full bg-amber/10 blur-3xl group-hover:bg-amber/15 transition-all duration-700" />
           <div className="absolute -left-24 -bottom-24 w-48 h-48 rounded-full bg-yellow-500/5 blur-3xl group-hover:bg-yellow-500/10 transition-all duration-700" />
-          
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 items-center relative z-10">
-            {/* Left Column: Login Prompts */}
-            <div className="lg:col-span-5 space-y-8 flex flex-col justify-center">
-              <div className="space-y-4">
-                <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-amber/10 text-3xl border border-amber/20 shadow-sm">
-                  🔒
-                </div>
-                <div className="space-y-2">
-                  <h2 className="font-display text-3xl sm:text-4xl text-espresso font-semibold tracking-tight">Sign in to Checkout</h2>
-                  <p className="text-sm text-truffle/75 leading-relaxed font-body">
-                    Log in using your Google account to unlock a premium tracking and order management experience.
-                  </p>
-                </div>
+
+          <div className="relative z-10 space-y-8">
+            <div className="space-y-4">
+              <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-amber/10 text-3xl border border-amber/20 shadow-sm">
+                🔒
               </div>
-
-              <div className="flex flex-col items-start gap-4 pt-2">
-                {/* Premium Google Button Wrapper */}
-                <div className="relative group/btn overflow-hidden rounded-full p-[2px] transition-all duration-300 hover:scale-[1.02] active:scale-[0.98] hover:shadow-[0_0_20px_rgba(208,132,62,0.25)] bg-gradient-to-r from-amber via-yellow-500 to-amber-700 w-[254px]">
-                  <div className="rounded-full bg-white p-0.5">
-                    <div id="google-signin-btn-checkout-login" className="relative z-10" />
-                  </div>
-                </div>
-
-                <button
-                  onClick={() => setBypassLogin(true)}
-                  className="text-xs font-bold uppercase tracking-wider text-truffle/60 hover:text-cocoa border border-truffle/20 hover:border-cocoa/40 bg-white/40 hover:bg-white/80 px-6 py-3 rounded-full transition-all duration-200 shadow-sm cursor-pointer"
-                >
-                  Continue without Login &rarr;
-                </button>
+              <div className="space-y-2">
+                <h2 className="font-display text-3xl sm:text-4xl text-espresso font-semibold tracking-tight">Sign in to Checkout</h2>
+                <p className="text-sm text-truffle/75 leading-relaxed font-body">
+                  Log in using your Google account to unlock a premium tracking and order management experience.
+                </p>
               </div>
             </div>
 
-            {/* Right Column: Visual Mockup Card */}
-            <div className="lg:col-span-7 relative group/mockup">
-              {/* Subtle overlay blur indicating lock */}
-              <div className="absolute inset-0 bg-white/5 backdrop-blur-[0.5px] rounded-3xl z-10 flex items-center justify-center pointer-events-none transition duration-300 group-hover/mockup:backdrop-blur-0" />
-              <MockOrdersCard />
+            <div className="flex flex-col items-start gap-4">
+              {/* Premium Google Button Wrapper */}
+              <div className="relative group/btn overflow-hidden rounded-full p-[2px] transition-all duration-300 hover:scale-[1.02] active:scale-[0.98] hover:shadow-[0_0_20px_rgba(208,132,62,0.25)] bg-gradient-to-r from-amber via-yellow-500 to-amber-700 w-[254px]">
+                <div className="rounded-full bg-white p-0.5">
+                  <div id="google-signin-btn-checkout-login" className="relative z-10" />
+                </div>
+              </div>
+
+              <button
+                onClick={() => setBypassLogin(true)}
+                className="text-xs font-bold uppercase tracking-wider text-truffle/60 hover:text-cocoa border border-truffle/20 hover:border-cocoa/40 bg-white/40 hover:bg-white/80 px-6 py-3 rounded-full transition-all duration-200 shadow-sm cursor-pointer"
+              >
+                Continue without Login &rarr;
+              </button>
             </div>
           </div>
         </div>
