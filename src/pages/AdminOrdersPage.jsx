@@ -1,4 +1,4 @@
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { API_BASE_URL } from "../config/runtime";
@@ -392,6 +392,36 @@ export default function AdminOrdersPage() {
   const [activeTab, setActiveTab] = useState("orders");
   const [chartMode, setChartMode] = useState("revenue"); // "revenue" or "orders"
   const [hoveredBarIndex, setHoveredBarIndex] = useState(null);
+  const [selectedExportMonth, setSelectedExportMonth] = useState("all");
+  const [isMonthDropdownOpen, setIsMonthDropdownOpen] = useState(false);
+  const dropdownRef = useRef(null);
+  const [exportMode, setExportMode] = useState("month"); // "month" or "custom"
+  const [startDate, setStartDate] = useState("");
+  const [endDate, setEndDate] = useState("");
+
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+        setIsMonthDropdownOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  const availableMonths = useMemo(() => {
+    const list = [];
+    const now = new Date();
+    for (let i = 0; i < 12; i++) {
+      const date = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      const year = date.getFullYear();
+      const month = date.getMonth() + 1;
+      const key = `${year}-${String(month).padStart(2, "0")}`; // YYYY-MM
+      const label = date.toLocaleDateString("en-IN", { month: "long", year: "numeric" });
+      list.push({ key, label });
+    }
+    return list;
+  }, []);
 
   // Calculate business statistics
   const stats = useMemo(() => {
@@ -515,8 +545,44 @@ export default function AdminOrdersPage() {
     };
   }, [orders]);
 
-  const exportOrdersToCSV = () => {
-    if (orders.length === 0) return;
+  const exportFilteredOrdersToCSV = () => {
+    let filtered = orders;
+    let filenameSuffix = "all_months";
+    
+    if (exportMode === "month") {
+      if (selectedExportMonth !== "all") {
+        filtered = orders.filter((o) => {
+          if (!o.createdAt) return false;
+          const date = new Date(o.createdAt);
+          const year = date.getFullYear();
+          const month = date.getMonth();
+          const key = `${year}-${String(month + 1).padStart(2, "0")}`;
+          return key === selectedExportMonth;
+        });
+        filenameSuffix = selectedExportMonth;
+      }
+    } else {
+      const start = startDate ? new Date(startDate) : null;
+      const end = endDate ? new Date(endDate) : null;
+      if (end) {
+        end.setHours(23, 59, 59, 999);
+      }
+      
+      filtered = orders.filter((o) => {
+        if (!o.createdAt) return false;
+        const orderTime = new Date(o.createdAt).getTime();
+        if (start && orderTime < start.getTime()) return false;
+        if (end && orderTime > end.getTime()) return false;
+        return true;
+      });
+      filenameSuffix = `${startDate || "start"}_to_${endDate || "end"}`;
+    }
+
+    if (filtered.length === 0) {
+      alert("No orders found for the selected filter.");
+      return;
+    }
+
     const headers = [
       "Order ID", 
       "Date", 
@@ -532,7 +598,7 @@ export default function AdminOrdersPage() {
       "Subtotal", 
       "Grand Total"
     ];
-    const rows = orders.map((o) => [
+    const rows = filtered.map((o) => [
       o.orderId,
       o.createdAt ? new Date(o.createdAt).toISOString().split("T")[0] : "",
       o.customer?.name || "",
@@ -557,7 +623,77 @@ export default function AdminOrdersPage() {
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.setAttribute("href", url);
-    link.setAttribute("download", `anjaraipetti_orders_report_${new Date().toISOString().split("T")[0]}.csv`);
+    link.setAttribute("download", `anjaraipetti_orders_${filenameSuffix}_${new Date().toISOString().split("T")[0]}.csv`);
+    link.style.visibility = "hidden";
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  const exportMonthlySummaryToCSV = () => {
+    if (stats.monthlyData.length === 0) {
+      alert("No sales data available to summarize.");
+      return;
+    }
+
+    const headers = [
+      "Month", 
+      "Total Orders Placed", 
+      "Active Orders", 
+      "Total Revenue (INR)", 
+      "Average Order Value (INR)",
+      "COD Orders (Active)", 
+      "Razorpay Orders (Active)"
+    ];
+
+    const rows = stats.monthlyData.map((m) => {
+      const monthOrders = orders.filter((o) => {
+        if (!o.createdAt) return false;
+        const date = new Date(o.createdAt);
+        const year = date.getFullYear();
+        const month = date.getMonth();
+        const key = `${year}-${String(month + 1).padStart(2, "0")}`;
+        return key === m.key;
+      });
+
+      const activeOrders = monthOrders.filter(o => o.status !== "Cancelled");
+      const totalOrdersPlaced = monthOrders.length;
+      const activeCount = activeOrders.length;
+      const revenue = m.revenue;
+      const aov = activeCount > 0 ? revenue / activeCount : 0;
+
+      let cod = 0;
+      let razorpay = 0;
+      activeOrders.forEach(o => {
+        const method = o.payment?.method || "cod";
+        if (method.toLowerCase() === "razorpay") {
+          razorpay++;
+        } else {
+          cod++;
+        }
+      });
+
+      return [
+        m.label,
+        totalOrdersPlaced,
+        activeCount,
+        revenue.toFixed(2),
+        aov.toFixed(2),
+        cod,
+        razorpay
+      ];
+    });
+
+    const csvContent = [
+      headers.join(","),
+      ...rows.map(r => r.map(val => `"${String(val).replace(/"/g, '""')}"`).join(","))
+    ].join("\n");
+    
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.setAttribute("href", url);
+    link.setAttribute("download", `anjaraipetti_monthly_sales_summary_${new Date().toISOString().split("T")[0]}.csv`);
     link.style.visibility = "hidden";
     document.body.appendChild(link);
     link.click();
@@ -1259,17 +1395,162 @@ export default function AdminOrdersPage() {
           </div>
 
           {/* Action Row */}
-          <div className="flex justify-end">
-            <button
-              type="button"
-              onClick={exportOrdersToCSV}
-              className="flex items-center gap-2 rounded-xl bg-cocoa hover:bg-cocoa/90 px-6 py-3 text-xs font-bold uppercase tracking-widest text-white shadow-md transition"
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="h-4 w-4">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M16.5 12 12 16.5m0 0L7.5 12m4.5 4.5V3" />
-              </svg>
-              Export Report to CSV
-            </button>
+          <div className="relative flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6 p-6 rounded-3xl border border-truffle/10 bg-white/75 shadow-luxe backdrop-blur-xl z-20">
+            {/* Left side: Detailed export by month or date range */}
+            <div className="flex flex-col gap-3 flex-1">
+              <div>
+                <h4 className="text-sm font-bold text-espresso">Detailed Sales Report</h4>
+                <p className="text-xs text-truffle/60">Export order records for a given month or custom date range</p>
+              </div>
+              
+              {/* Selector Mode Capsule */}
+              <div className="inline-flex rounded-lg bg-truffle/10 p-0.5 self-start mb-1">
+                <button
+                  type="button"
+                  onClick={() => setExportMode("month")}
+                  className={`rounded-md px-3.5 py-1.5 text-[10px] font-bold uppercase tracking-wider transition ${
+                    exportMode === "month"
+                      ? "bg-white text-cocoa shadow"
+                      : "text-truffle/60 hover:text-truffle"
+                  }`}
+                >
+                  By Month
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setExportMode("custom")}
+                  className={`rounded-md px-3.5 py-1.5 text-[10px] font-bold uppercase tracking-wider transition ${
+                    exportMode === "custom"
+                      ? "bg-white text-cocoa shadow"
+                      : "text-truffle/60 hover:text-truffle"
+                  }`}
+                >
+                  Date Range
+                </button>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-3">
+                {exportMode === "month" ? (
+                  <div className="relative" ref={dropdownRef}>
+                    <button
+                      type="button"
+                      onClick={() => setIsMonthDropdownOpen(!isMonthDropdownOpen)}
+                      className="flex items-center justify-between gap-3 w-52 rounded-xl border border-truffle/20 bg-white/95 px-4 py-2.5 text-xs font-semibold text-truffle hover:border-cocoa transition-all focus:outline-none shadow-sm"
+                    >
+                      <span>
+                        {selectedExportMonth === "all"
+                          ? "All Months"
+                          : availableMonths.find((m) => m.key === selectedExportMonth)?.label || selectedExportMonth}
+                      </span>
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        strokeWidth={2.5}
+                        stroke="currentColor"
+                        className={`h-3.5 w-3.5 text-truffle/60 transition-transform duration-200 ${
+                          isMonthDropdownOpen ? "rotate-180" : ""
+                        }`}
+                      >
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" />
+                      </svg>
+                    </button>
+
+                    <AnimatePresence>
+                      {isMonthDropdownOpen && (
+                        <motion.div
+                          initial={{ opacity: 0, y: -8 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          exit={{ opacity: 0, y: -8 }}
+                          transition={{ duration: 0.15 }}
+                          className="absolute left-0 mt-2 w-52 max-h-60 overflow-y-auto rounded-2xl border border-truffle/15 bg-white shadow-luxe z-50 py-1.5 focus:outline-none scrollbar-thin"
+                        >
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setSelectedExportMonth("all");
+                              setIsMonthDropdownOpen(false);
+                            }}
+                            className={`w-full text-left px-4 py-2 text-xs font-semibold hover:bg-cocoa/10 hover:text-cocoa transition-colors ${
+                              selectedExportMonth === "all" ? "text-cocoa bg-cocoa/5 font-bold" : "text-truffle"
+                            }`}
+                          >
+                            All Months
+                          </button>
+                          {availableMonths.map((m) => {
+                            const isSelected = selectedExportMonth === m.key;
+                            return (
+                              <button
+                                key={m.key}
+                                type="button"
+                                onClick={() => {
+                                  setSelectedExportMonth(m.key);
+                                  setIsMonthDropdownOpen(false);
+                                }}
+                                className={`w-full text-left px-4 py-2 text-xs font-semibold hover:bg-cocoa/10 hover:text-cocoa transition-colors ${
+                                  isSelected ? "text-cocoa bg-cocoa/5 font-bold" : "text-truffle"
+                                }`}
+                              >
+                                {m.label}
+                              </button>
+                            );
+                          })}
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+                  </div>
+                ) : (
+                  <div className="flex flex-wrap items-center gap-2">
+                    <div className="relative">
+                      <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[9px] uppercase font-bold tracking-wider text-truffle/55 pointer-events-none">Start</span>
+                      <input
+                        type="date"
+                        value={startDate}
+                        onChange={(e) => setStartDate(e.target.value)}
+                        className="rounded-xl border border-truffle/20 bg-white/95 pl-14 pr-3 py-2 text-xs font-semibold text-truffle outline-none hover:border-cocoa focus:border-cocoa transition-all shadow-sm w-44"
+                      />
+                    </div>
+                    <div className="relative">
+                      <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[9px] uppercase font-bold tracking-wider text-truffle/55 pointer-events-none">End</span>
+                      <input
+                        type="date"
+                        value={endDate}
+                        onChange={(e) => setEndDate(e.target.value)}
+                        className="rounded-xl border border-truffle/20 bg-white/95 pl-12 pr-3 py-2 text-xs font-semibold text-truffle outline-none hover:border-cocoa focus:border-cocoa transition-all shadow-sm w-44"
+                      />
+                    </div>
+                  </div>
+                )}
+                <button
+                  type="button"
+                  onClick={exportFilteredOrdersToCSV}
+                  className="flex items-center gap-2 rounded-xl bg-cocoa hover:bg-cocoa/90 px-4 py-2.5 text-xs font-bold uppercase tracking-widest text-white transition shadow-sm"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="h-4 w-4">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M16.5 12 12 16.5m0 0L7.5 12m4.5 4.5V3" />
+                  </svg>
+                  Export Orders
+                </button>
+              </div>
+            </div>
+
+            {/* Right side: Monthly summary export */}
+            <div className="flex flex-col sm:flex-row sm:items-center gap-3 border-t border-truffle/10 pt-4 md:border-t-0 md:pt-0">
+              <div className="text-left md:text-right">
+                <h4 className="text-sm font-bold text-espresso">Monthly Sales Summary</h4>
+                <p className="text-xs text-truffle/60">Export a summary of metrics grouped by month</p>
+              </div>
+              <button
+                type="button"
+                onClick={exportMonthlySummaryToCSV}
+                className="flex items-center gap-2 rounded-xl border border-cocoa text-cocoa hover:bg-cocoa/10 px-5 py-2.5 text-xs font-bold uppercase tracking-widest transition"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="h-4 w-4">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h3.75M9 15h3.75M9 18h3.75m3 .75H18a2.25 2.25 0 0 0 2.25-2.25V6.108c0-1.135-.845-2.098-1.976-2.192a48.424 48.424 0 0 0-1.123-.08m-5.801 0c-.065.21-.1.433-.1.664 0 .414.336.75.75.75h4.5a.75.75 0 0 0 .75-.75 2.25 2.25 0 0 0-.1-.664m-5.8 0A2.251 2.251 0 0 1 13.5 2.25H15c1.03 0 1.9.693 2.166 1.638m-7.377 12.408.01-.01.007-.007a2.25 2.25 0 0 1 3.178 0l.009.01m-.012-11.826H6.25A2.25 2.25 0 0 0 4 5.25v13.5A2.25 2.25 0 0 0 6.25 21h4.007c-.019-.223-.007-.45.035-.678l.6-3a2.25 2.25 0 0 1 1.258-1.579l1.196-.598m-1.628-2.614a2.25 2.25 0 0 1-.822-2.167l.192-.962a2.25 2.25 0 0 1 1.579-1.706l1.24-.31" />
+                </svg>
+                Export Monthly Summary
+              </button>
+            </div>
           </div>
 
           {/* Middle Analytics Grid */}
