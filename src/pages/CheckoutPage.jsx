@@ -96,7 +96,7 @@ export default function CheckoutPage({ cartItems, onClearCart, deliveryChargeEna
             size: "large",
             text: "signin_with",
             shape: "pill",
-            width: "250"
+            width: "320"
           });
           return true;
         }
@@ -166,65 +166,59 @@ export default function CheckoutPage({ cartItems, onClearCart, deliveryChargeEna
   // Ask user to login before checkout, explaining the benefits (or continue as guest)
   if (!user && !bypassLogin) {
     return (
-      <section className="relative min-h-[85vh] mx-auto w-full max-w-6xl px-4 sm:px-6 flex items-center justify-center py-12">
-        <div className="w-full max-w-md bg-gradient-to-br from-white/95 via-almond/30 to-porcelain/90 rounded-[2.5rem] border border-truffle/15 p-8 sm:p-12 shadow-luxe backdrop-blur-xl relative overflow-hidden group">
-          {/* Accent Glow */}
-          <div className="absolute -right-24 -top-24 w-48 h-48 rounded-full bg-amber/10 blur-3xl group-hover:bg-amber/15 transition-all duration-700" />
-          <div className="absolute -left-24 -bottom-24 w-48 h-48 rounded-full bg-yellow-500/5 blur-3xl group-hover:bg-yellow-500/10 transition-all duration-700" />
+      <section className="relative min-h-screen w-full flex items-center justify-center px-4 py-16"
+        style={{ background: "linear-gradient(135deg, #fdf8f3 0%, #f5ede0 50%, #fdf8f3 100%)" }}
+      >
+        <div className="w-full max-w-lg flex flex-col items-center text-center gap-6">
 
-          <div className="relative z-10 space-y-8">
-            <div className="space-y-4">
-              <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-amber/10 text-3xl border border-amber/20 shadow-sm">
-                🔒
-              </div>
-              <div className="space-y-2">
-                <h2 className="font-display text-3xl sm:text-4xl text-espresso font-semibold tracking-tight">Sign in to Checkout</h2>
-                <p className="text-sm text-truffle/75 leading-relaxed font-body">
-                  Log in using your Google account to unlock a premium tracking and order management experience.
-                </p>
-              </div>
+          {/* Heading */}
+          <div className="space-y-2">
+            <h2 className="font-display text-4xl sm:text-5xl text-espresso font-semibold tracking-tight">
+              Sign in to Checkout
+            </h2>
+            <p className="text-sm sm:text-base text-truffle/70 leading-relaxed max-w-sm mx-auto">
+              Log in using your Google account to unlock a premium tracking and order management experience.
+            </p>
+          </div>
 
-              {/* Benefit tick list */}
-              <ul className="space-y-2.5 pt-1">
-                {[
-                  "Track your orders in real time",
-                  "View full order history",
-                  "Save & reuse delivery addresses",
-                  "Download invoices anytime",
-                ].map((benefit) => (
-                  <li key={benefit} className="flex items-center gap-3 text-sm text-truffle/80 font-medium">
-                    <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-emerald-50 border border-emerald-200">
-                      <svg className="h-3 w-3 text-emerald-500" viewBox="0 0 12 12" fill="none">
-                        <path d="M2 6l3 3 5-5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
-                      </svg>
-                    </span>
-                    {benefit}
-                  </li>
-                ))}
-              </ul>
-            </div>
-
-
-            <div className="flex flex-col items-start gap-4">
-              {/* Premium Google Button Wrapper */}
-              <div className="relative group/btn overflow-hidden rounded-full p-[2px] transition-all duration-300 hover:scale-[1.02] active:scale-[0.98] hover:shadow-[0_0_20px_rgba(208,132,62,0.25)] bg-gradient-to-r from-amber via-yellow-500 to-amber-700 w-[254px]">
-                <div className="rounded-full bg-white p-0.5">
-                  <div id="google-signin-btn-checkout-login" className="relative z-10" />
+          {/* Benefits Card */}
+          <div className="w-full bg-white/80 border border-truffle/10 rounded-3xl p-6 sm:p-8 shadow-sm text-left space-y-5">
+            <p className="text-[10px] font-black uppercase tracking-[0.2em] text-truffle/40">Secure Checkout Benefits</p>
+            <div className="grid grid-cols-2 gap-x-6 gap-y-5">
+              {[
+                { title: "Track Orders",       desc: "Real-time status updates and delivery tracking." },
+                { title: "View Order History", desc: "Keep a secure log of all past purchases and invoice receipts." },
+                { title: "Download Invoices",  desc: "Access official PDF invoices instantly anytime." },
+                { title: "Faster Checkout",    desc: "Save multiple delivery addresses securely." },
+              ].map(({ title, desc }) => (
+                <div key={title} className="flex flex-col gap-1">
+                  <div className="flex items-center gap-2">
+                    <svg className="h-4 w-4 shrink-0 text-emerald-500" viewBox="0 0 16 16" fill="none">
+                      <path d="M3 8l3.5 3.5 6.5-7" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                    </svg>
+                    <span className="text-sm font-black text-espresso">{title}</span>
+                  </div>
+                  <p className="text-[11px] text-truffle/55 leading-snug pl-6">{desc}</p>
                 </div>
-              </div>
-
-              <button
-                onClick={() => setBypassLogin(true)}
-                className="text-xs font-bold uppercase tracking-wider text-truffle/60 hover:text-cocoa border border-truffle/20 hover:border-cocoa/40 bg-white/40 hover:bg-white/80 px-6 py-3 rounded-full transition-all duration-200 shadow-sm cursor-pointer"
-              >
-                Continue without Login &rarr;
-              </button>
+              ))}
             </div>
+          </div>
+
+          {/* Buttons */}
+          <div className="w-full flex flex-col items-center gap-3">
+            <div id="google-signin-btn-checkout-login" className="w-full max-w-xs" />
+            <button
+              onClick={() => setBypassLogin(true)}
+              className="w-full max-w-xs text-xs font-bold uppercase tracking-widest text-truffle/60 hover:text-cocoa border border-truffle/20 hover:border-cocoa/40 bg-white/60 hover:bg-white py-3 rounded-full transition-all duration-200 shadow-sm cursor-pointer"
+            >
+              Continue without Login &#8594;
+            </button>
           </div>
         </div>
       </section>
     );
   }
+
 
   const handleInput = (event) => {
     const { name, value } = event.target;
