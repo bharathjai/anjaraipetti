@@ -42,7 +42,7 @@ const TIMELINE_STEPS = [
 // Helper to calculate active step index in progress timeline
 function getStepIndex(status) {
   const s = String(status || "").toLowerCase();
-  if (s.includes("delivered") || s.includes("completed")) return 4;
+  if (s.includes("delivered") || s.includes("completed")) return 5; // 5 = beyond last step → all steps green
   if (s.includes("shipped") || s.includes("transit") || s.includes("out for delivery")) return 3;
   if (s.includes("packed") || s.includes("processing")) return 2;
   if (s.includes("confirmed") || s.includes("paid")) return 1;

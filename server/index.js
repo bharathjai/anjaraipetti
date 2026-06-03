@@ -163,7 +163,8 @@ const orderSchema = new mongoose.Schema(
     },
     status: { type: String, required: true },
     eta: { type: String, required: true },
-    createdAt: { type: Date, required: true }
+    createdAt: { type: Date, required: true },
+    deletedByAdmin: { type: Boolean, default: false }
   },
   { versionKey: false }
 );
@@ -920,14 +921,19 @@ async function getOrderById(orderId) {
   return OrderModel.findOne({ orderId }).lean();
 }
 
-async function listOrders(phone) {
+async function listOrders(phone, excludeDeleted = false) {
   if (!isPersistenceEnabled()) {
     return Array.from(memoryOrders.values())
-      .filter((order) => (phone ? order.customer?.phone === phone : true))
+      .filter((order) => {
+        if (phone && order.customer?.phone !== phone) return false;
+        if (excludeDeleted && order.deletedByAdmin) return false;
+        return true;
+      })
       .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
   }
 
   const query = phone ? { "customer.phone": phone } : {};
+  if (excludeDeleted) query.deletedByAdmin = { $ne: true };
   return OrderModel.find(query).sort({ createdAt: -1 }).lean();
 }
 
@@ -935,10 +941,16 @@ async function deleteOrderById(orderId) {
   if (!isPersistenceEnabled()) {
     const existing = memoryOrders.get(orderId);
     if (!existing) return null;
-    memoryOrders.delete(orderId);
+    existing.deletedByAdmin = true;
+    existing.status = "Delivered";
+    memoryOrders.set(orderId, existing);
     return existing;
   }
-  return OrderModel.findOneAndDelete({ orderId }).lean();
+  return OrderModel.findOneAndUpdate(
+    { orderId },
+    { $set: { deletedByAdmin: true, status: "Delivered" } },
+    { new: true }
+  ).lean();
 }
 
 async function paymentAlreadyProcessed(razorpayPaymentId) {
@@ -1850,7 +1862,8 @@ app.post("/api/orders/razorpay/confirm", async (req, res) => {
 app.get("/api/admin/orders", requireAdminAuth, async (req, res) => {
   const phone = String(req.query.phone || "").trim();
   try {
-    const list = await listOrders(phone);
+    // excludeDeleted=true: hide orders soft-deleted by admin
+    const list = await listOrders(phone, true);
     return res.json({ ok: true, count: list.length, orders: list });
   } catch (_error) {
     return res.status(500).json({ ok: false, message: "Unable to fetch orders" });
@@ -1859,7 +1872,7 @@ app.get("/api/admin/orders", requireAdminAuth, async (req, res) => {
 
 app.get("/api/admin/orders/:orderId", requireAdminAuth, async (req, res) => {
   const order = await getOrderById(req.params.orderId);
-  if (!order) {
+  if (!order || order.deletedByAdmin) {
     return res.status(404).json({ ok: false, message: "Order not found" });
   }
   return res.json({ ok: true, order });
@@ -1867,20 +1880,18 @@ app.get("/api/admin/orders/:orderId", requireAdminAuth, async (req, res) => {
 
 app.delete("/api/admin/orders/:orderId", requireAdminAuth, async (req, res) => {
   try {
-    const deletedOrder = await deleteOrderById(req.params.orderId);
-    if (!deletedOrder) {
+    const order = await getOrderById(req.params.orderId);
+    if (!order || order.deletedByAdmin) {
       return res.status(404).json({ ok: false, message: "Order not found" });
     }
 
-    const restoreQty = Number.parseInt(deletedOrder.quantity, 10);
-    const restoreProduct = getProductById(deletedOrder.productId);
-    if (restoreProduct && !Number.isNaN(restoreQty) && restoreQty > 0) {
-      inventoryByProduct[restoreProduct.id] = Number(inventoryByProduct[restoreProduct.id] ?? 0) + restoreQty;
+    const softDeleted = await deleteOrderById(req.params.orderId);
+    if (!softDeleted) {
+      return res.status(404).json({ ok: false, message: "Order not found" });
     }
-    await persistState();
-    broadcastState();
 
-    return res.json({ ok: true, message: "Order deleted successfully", order: deletedOrder });
+    // No inventory restoration — order counts as a completed delivery
+    return res.json({ ok: true, message: "Order deleted successfully", order: softDeleted });
   } catch (_error) {
     return res.status(500).json({ ok: false, message: "Unable to delete order" });
   }
