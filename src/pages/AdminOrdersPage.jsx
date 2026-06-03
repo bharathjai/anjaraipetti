@@ -921,190 +921,194 @@ export default function AdminOrdersPage() {
       </div>
 
       {/* Push Notifications Subscription Panel */}
-      <motion.div
-        initial={{ opacity: 0, y: -10 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="mb-8 overflow-hidden rounded-3xl border border-truffle/10 bg-white/75 p-6 shadow-luxe backdrop-blur-xl md:p-8"
-      >
-        <div className="flex flex-col gap-6 md:flex-row md:items-center md:justify-between">
-          <div className="flex items-start gap-4">
-            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-cocoa/10 text-cocoa">
-              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="h-6 w-6">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M14.857 17.082a23.848 23.848 0 0 0 5.454-1.31A8.967 8.967 0 0 1 18 9.75V9A6 6 0 0 0 6 9v.75a8.967 8.967 0 0 1-2.312 6.022c1.733.64 3.56 1.085 5.455 1.31m5.714 0a24.255 24.255 0 0 1-5.714 0m5.714 0a3 3 0 1 1-5.714 0M3.124 7.5A8.969 8.969 0 0 1 5.292 3m13.416 0a8.969 8.969 0 0 1 2.168 4.5" />
-              </svg>
+      {activeTab === "orders" && (
+        <motion.div
+          initial={{ opacity: 0, y: -10 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="mb-8 overflow-hidden rounded-3xl border border-truffle/10 bg-white/75 p-6 shadow-luxe backdrop-blur-xl md:p-8"
+        >
+          <div className="flex flex-col gap-6 md:flex-row md:items-center md:justify-between">
+            <div className="flex items-start gap-4">
+              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-cocoa/10 text-cocoa">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="h-6 w-6">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M14.857 17.082a23.848 23.848 0 0 0 5.454-1.31A8.967 8.967 0 0 1 18 9.75V9A6 6 0 0 0 6 9v.75a8.967 8.967 0 0 1-2.312 6.022c1.733.64 3.56 1.085 5.455 1.31m5.714 0a24.255 24.255 0 0 1-5.714 0m5.714 0a3 3 0 1 1-5.714 0M3.124 7.5A8.969 8.969 0 0 1 5.292 3m13.416 0a8.969 8.969 0 0 1 2.168 4.5" />
+                </svg>
+              </div>
+              <div>
+                <h2 className="font-display text-2xl text-espresso">Order Push Notifications</h2>
+                <p className="mt-1 text-sm text-truffle/70">
+                  Receive real-time push alerts on your phone or desktop the instant a customer places a new order.
+                </p>
+              </div>
             </div>
-            <div>
-              <h2 className="font-display text-2xl text-espresso">Order Push Notifications</h2>
-              <p className="mt-1 text-sm text-truffle/70">
-                Receive real-time push alerts on your phone or desktop the instant a customer places a new order.
-              </p>
-            </div>
-          </div>
 
-          <div className="flex items-center gap-3 self-start md:self-auto">
-            {subStatus === "loading" && (
-              <span className="text-xs uppercase tracking-widest text-truffle/50 animate-pulse font-semibold">Updating...</span>
-            )}
-            
-            {subStatus === "subscribed" && (
-              <div className="flex items-center gap-4">
-                <div className="flex items-center gap-2 rounded-full bg-emerald-50 border border-emerald-200 px-4 py-1.5 text-xs font-semibold text-emerald-800">
-                  <span className="h-2 w-2 rounded-full bg-emerald-500 animate-ping" />
-                  Active
+            <div className="flex items-center gap-3 self-start md:self-auto">
+              {subStatus === "loading" && (
+                <span className="text-xs uppercase tracking-widest text-truffle/50 animate-pulse font-semibold">Updating...</span>
+              )}
+              
+              {subStatus === "subscribed" && (
+                <div className="flex items-center gap-4">
+                  <div className="flex items-center gap-2 rounded-full bg-emerald-50 border border-emerald-200 px-4 py-1.5 text-xs font-semibold text-emerald-800">
+                    <span className="h-2 w-2 rounded-full bg-emerald-500 animate-ping" />
+                    Active
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleUnsubscribe}
+                    className="rounded-xl border border-red-200 bg-red-50/50 hover:bg-red-50 px-4 py-2 text-xs font-bold uppercase tracking-wider text-red-700 transition"
+                  >
+                    Mute Alerts
+                  </button>
                 </div>
+              )}
+
+              {subStatus === "unsubscribed" && (
                 <button
                   type="button"
-                  onClick={handleUnsubscribe}
-                  className="rounded-xl border border-red-200 bg-red-50/50 hover:bg-red-50 px-4 py-2 text-xs font-bold uppercase tracking-wider text-red-700 transition"
+                  onClick={handleSubscribe}
+                  className="rounded-xl bg-cocoa hover:bg-cocoa/90 px-6 py-2.5 text-xs font-bold uppercase tracking-widest text-white shadow-md transition"
                 >
-                  Mute Alerts
+                  Enable Notifications
                 </button>
-              </div>
-            )}
+              )}
 
-            {subStatus === "unsubscribed" && (
-              <button
-                type="button"
-                onClick={handleSubscribe}
-                className="rounded-xl bg-cocoa hover:bg-cocoa/90 px-6 py-2.5 text-xs font-bold uppercase tracking-widest text-white shadow-md transition"
-              >
-                Enable Notifications
-              </button>
-            )}
-
-            {subStatus === "permission_denied" && (
-              <div className="flex flex-col gap-2 md:items-end">
-                <div className="rounded-full bg-amber-50 border border-amber-200 px-4 py-1.5 text-xs font-semibold text-amber-800">
-                  Permission Denied
+              {subStatus === "permission_denied" && (
+                <div className="flex flex-col gap-2 md:items-end">
+                  <div className="rounded-full bg-amber-50 border border-amber-200 px-4 py-1.5 text-xs font-semibold text-amber-800">
+                    Permission Denied
+                  </div>
+                  <span className="text-[10px] text-truffle/60 text-left md:text-right max-w-xs">
+                    Please click the lock icon in your browser address bar and change notifications permission to "Allow", then click "Enable Notifications" again.
+                  </span>
                 </div>
-                <span className="text-[10px] text-truffle/60 text-left md:text-right max-w-xs">
-                  Please click the lock icon in your browser address bar and change notifications permission to "Allow", then click "Enable Notifications" again.
-                </span>
-              </div>
-            )}
+              )}
 
-            {subStatus === "unsupported" && (
-              <div className="rounded-full bg-truffle/10 border border-truffle/20 px-4 py-1.5 text-xs font-semibold text-truffle/60">
-                Not Supported in this Browser
-              </div>
-            )}
-          </div>
-        </div>
-
-        {registeredDevices.length > 0 && (
-          <div className="mt-8 border-t border-truffle/10 pt-6">
-            <div className="flex items-center justify-between gap-4 mb-4">
-              <h3 className="text-xs font-semibold uppercase tracking-[0.2em] text-cocoa/80">
-                Registered Admin Devices ({registeredDevices.length})
-              </h3>
-            </div>
-            <div className="overflow-x-auto">
-              <table className="w-full text-left text-xs border-collapse">
-                <thead>
-                  <tr className="border-b border-truffle/15 text-truffle/60">
-                    <th className="py-2.5 font-bold uppercase tracking-wider">Device Name</th>
-                    <th className="py-2.5 font-bold uppercase tracking-wider">Browser</th>
-                    <th className="py-2.5 font-bold uppercase tracking-wider">Created Date</th>
-                    <th className="py-2.5 font-bold uppercase tracking-wider">Last Active</th>
-                    <th className="py-2.5 font-bold uppercase tracking-wider text-right">Status</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-truffle/10 text-espresso font-medium">
-                  {registeredDevices.map((device) => {
-                    const isThisDevice = localStorage.getItem("anj_admin_fcm_token") === device.token;
-                    return (
-                      <tr key={device.token} className={isThisDevice ? "bg-cocoa/5 font-semibold" : ""}>
-                        <td className="py-3 pr-2">
-                          <span className="flex items-center gap-1.5">
-                            {device.deviceName}
-                            {isThisDevice && (
-                              <span className="rounded bg-cocoa/10 px-1.5 py-0.5 text-[9px] uppercase tracking-wider text-cocoa">
-                                This Device
-                              </span>
-                            )}
-                          </span>
-                        </td>
-                        <td className="py-3 pr-2">{device.browser}</td>
-                        <td className="py-3 pr-2 text-truffle/70">
-                          {new Date(device.createdAt).toLocaleDateString("en-IN", {
-                            year: "numeric",
-                            month: "short",
-                            day: "numeric",
-                            hour: "2-digit",
-                            minute: "2-digit"
-                          })}
-                        </td>
-                        <td className="py-3 pr-2 text-truffle/70">
-                          {new Date(device.lastActiveAt).toLocaleDateString("en-IN", {
-                            year: "numeric",
-                            month: "short",
-                            day: "numeric",
-                            hour: "2-digit",
-                            minute: "2-digit"
-                          })}
-                        </td>
-                        <td className="py-3 text-right">
-                          <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2.5 py-0.5 text-[10px] font-semibold text-emerald-800">
-                            <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
-                            Active
-                          </span>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
+              {subStatus === "unsupported" && (
+                <div className="rounded-full bg-truffle/10 border border-truffle/20 px-4 py-1.5 text-xs font-semibold text-truffle/60">
+                  Not Supported in this Browser
+                </div>
+              )}
             </div>
           </div>
-        )}
-      </motion.div>
+
+          {registeredDevices.length > 0 && (
+            <div className="mt-8 border-t border-truffle/10 pt-6">
+              <div className="flex items-center justify-between gap-4 mb-4">
+                <h3 className="text-xs font-semibold uppercase tracking-[0.2em] text-cocoa/80">
+                  Registered Admin Devices ({registeredDevices.length})
+                </h3>
+              </div>
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-xs border-collapse">
+                  <thead>
+                    <tr className="border-b border-truffle/15 text-truffle/60">
+                      <th className="py-2.5 font-bold uppercase tracking-wider">Device Name</th>
+                      <th className="py-2.5 font-bold uppercase tracking-wider">Browser</th>
+                      <th className="py-2.5 font-bold uppercase tracking-wider">Created Date</th>
+                      <th className="py-2.5 font-bold uppercase tracking-wider">Last Active</th>
+                      <th className="py-2.5 font-bold uppercase tracking-wider text-right">Status</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-truffle/10 text-espresso font-medium">
+                    {registeredDevices.map((device) => {
+                      const isThisDevice = localStorage.getItem("anj_admin_fcm_token") === device.token;
+                      return (
+                        <tr key={device.token} className={isThisDevice ? "bg-cocoa/5 font-semibold" : ""}>
+                          <td className="py-3 pr-2">
+                            <span className="flex items-center gap-1.5">
+                              {device.deviceName}
+                              {isThisDevice && (
+                                <span className="rounded bg-cocoa/10 px-1.5 py-0.5 text-[9px] uppercase tracking-wider text-cocoa">
+                                  This Device
+                                </span>
+                              )}
+                            </span>
+                          </td>
+                          <td className="py-3 pr-2">{device.browser}</td>
+                          <td className="py-3 pr-2 text-truffle/70">
+                            {new Date(device.createdAt).toLocaleDateString("en-IN", {
+                              year: "numeric",
+                              month: "short",
+                              day: "numeric",
+                              hour: "2-digit",
+                              minute: "2-digit"
+                            })}
+                          </td>
+                          <td className="py-3 pr-2 text-truffle/70">
+                            {new Date(device.lastActiveAt).toLocaleDateString("en-IN", {
+                              year: "numeric",
+                              month: "short",
+                              day: "numeric",
+                              hour: "2-digit",
+                              minute: "2-digit"
+                            })}
+                          </td>
+                          <td className="py-3 text-right">
+                            <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2.5 py-0.5 text-[10px] font-semibold text-emerald-800">
+                              <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+                              Active
+                            </span>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+        </motion.div>
+      )}
 
       {/* Delivery Charge Toggle Card */}
-      <motion.div
-        initial={{ opacity: 0, y: -10 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="mb-8 overflow-hidden rounded-3xl border border-truffle/10 bg-white/75 p-6 shadow-luxe backdrop-blur-xl md:p-8"
-      >
-        <div className="flex flex-col gap-6 md:flex-row md:items-center md:justify-between">
-          <div className="flex items-start gap-4">
-            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-cocoa/10 text-cocoa">
-              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="h-6 w-6">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 18.75a1.5 1.5 0 0 1-3 0m3 0a1.5 1.5 0 0 0-3 0m3 0h6m-9 0H3.375a1.125 1.125 0 0 1-1.125-1.125V14.25m17.25 4.5a1.5 1.5 0 0 1-3 0m3 0a1.5 1.5 0 0 0-3 0m3 0h1.125c.621 0 1.129-.504 1.129-1.125V11.25c0-.447-.269-.852-.685-1.025l-2.636-1.055a.75.75 0 0 0-.586.04L16.5 10.5m-2.25 8.25h-5.25m9-6h-9m9 0V9a2.25 2.25 0 0 0-2.25-2.25h-9a2.25 2.25 0 0 0-2.25 2.25v3m9-6h.75a2.25 2.25 0 0 1 2.25 2.25v1.5" />
-              </svg>
+      {activeTab === "orders" && (
+        <motion.div
+          initial={{ opacity: 0, y: -10 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="mb-8 overflow-hidden rounded-3xl border border-truffle/10 bg-white/75 p-6 shadow-luxe backdrop-blur-xl md:p-8"
+        >
+          <div className="flex flex-col gap-6 md:flex-row md:items-center md:justify-between">
+            <div className="flex items-start gap-4">
+              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-cocoa/10 text-cocoa">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="h-6 w-6">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 18.75a1.5 1.5 0 0 1-3 0m3 0a1.5 1.5 0 0 0-3 0m3 0h6m-9 0H3.375a1.125 1.125 0 0 1-1.125-1.125V14.25m17.25 4.5a1.5 1.5 0 0 1-3 0m3 0a1.5 1.5 0 0 0-3 0m3 0h1.125c.621 0 1.129-.504 1.129-1.125V11.25c0-.447-.269-.852-.685-1.025l-2.636-1.055a.75.75 0 0 0-.586.04L16.5 10.5m-2.25 8.25h-5.25m9-6h-9m9 0V9a2.25 2.25 0 0 0-2.25-2.25h-9a2.25 2.25 0 0 0-2.25 2.25v3m9-6h.75a2.25 2.25 0 0 1 2.25 2.25v1.5" />
+                </svg>
+              </div>
+              <div>
+                <h2 className="font-display text-2xl text-espresso">Delivery Charges (Flat ₹50)</h2>
+                <p className="mt-1 text-sm text-truffle/70">
+                  Enable or disable shipping fees dynamically. If disabled, all customers receive free delivery instantly.
+                </p>
+              </div>
             </div>
-            <div>
-              <h2 className="font-display text-2xl text-espresso">Delivery Charges (Flat ₹50)</h2>
-              <p className="mt-1 text-sm text-truffle/70">
-                Enable or disable shipping fees dynamically. If disabled, all customers receive free delivery instantly.
-              </p>
-            </div>
-          </div>
 
-          <div className="flex items-center gap-4 self-start md:self-auto">
-            {updatingDeliverySetting && (
-              <span className="text-xs uppercase tracking-widest text-truffle/50 animate-pulse font-semibold">Updating...</span>
-            )}
-            
-            <button
-              type="button"
-              onClick={handleToggleDeliveryCharge}
-              disabled={updatingDeliverySetting}
-              className={`relative inline-flex h-7 w-12 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out outline-none ${
-                adminDeliveryChargeEnabled ? "bg-cocoa animate-pulse" : "bg-truffle/20"
-              }`}
-            >
-              <span
-                className={`pointer-events-none inline-block h-6 w-6 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
-                  adminDeliveryChargeEnabled ? "translate-x-5" : "translate-x-0"
+            <div className="flex items-center gap-4 self-start md:self-auto">
+              {updatingDeliverySetting && (
+                <span className="text-xs uppercase tracking-widest text-truffle/50 animate-pulse font-semibold">Updating...</span>
+              )}
+              
+              <button
+                type="button"
+                onClick={handleToggleDeliveryCharge}
+                disabled={updatingDeliverySetting}
+                className={`relative inline-flex h-7 w-12 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out outline-none ${
+                  adminDeliveryChargeEnabled ? "bg-cocoa animate-pulse" : "bg-truffle/20"
                 }`}
-              />
-            </button>
-            <span className="text-sm font-semibold uppercase tracking-wider text-espresso w-20">
-              {adminDeliveryChargeEnabled ? "Enabled" : "Disabled"}
-            </span>
+              >
+                <span
+                  className={`pointer-events-none inline-block h-6 w-6 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
+                    adminDeliveryChargeEnabled ? "translate-x-5" : "translate-x-0"
+                  }`}
+                />
+              </button>
+              <span className="text-sm font-semibold uppercase tracking-wider text-espresso w-20">
+                {adminDeliveryChargeEnabled ? "Enabled" : "Disabled"}
+              </span>
+            </div>
           </div>
-        </div>
-      </motion.div>
+        </motion.div>
+      )}
 
       {error ? <p className="mb-4 text-red-700">{error}</p> : null}
 
