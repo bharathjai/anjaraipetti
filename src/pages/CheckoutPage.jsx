@@ -183,7 +183,27 @@ export default function CheckoutPage({ cartItems, onClearCart, deliveryChargeEna
                   Log in using your Google account to unlock a premium tracking and order management experience.
                 </p>
               </div>
+
+              {/* Benefit tick list */}
+              <ul className="space-y-2.5 pt-1">
+                {[
+                  "Track your orders in real time",
+                  "View full order history",
+                  "Save & reuse delivery addresses",
+                  "Download invoices anytime",
+                ].map((benefit) => (
+                  <li key={benefit} className="flex items-center gap-3 text-sm text-truffle/80 font-medium">
+                    <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-emerald-50 border border-emerald-200">
+                      <svg className="h-3 w-3 text-emerald-500" viewBox="0 0 12 12" fill="none">
+                        <path d="M2 6l3 3 5-5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
+                      </svg>
+                    </span>
+                    {benefit}
+                  </li>
+                ))}
+              </ul>
             </div>
+
 
             <div className="flex flex-col items-start gap-4">
               {/* Premium Google Button Wrapper */}
