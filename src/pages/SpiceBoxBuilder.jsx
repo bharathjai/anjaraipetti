@@ -49,11 +49,65 @@ export default function SpiceBoxBuilder({ onAddToCart }) {
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
 
+  const [particles, setParticles] = useState([]);
+
+  const getSpiceColor = (id) => {
+    const cleanId = String(id || "").toLowerCase();
+    if (cleanId.includes("sambar")) return "#e6a467";
+    if (cleanId.includes("biryani")) return "#9e6b43";
+    if (cleanId.includes("pepper")) return "#2d2d2a";
+    if (cleanId.includes("parupu")) return "#d2b48c";
+    if (cleanId.includes("fish")) return "#c0392b";
+    if (cleanId.includes("tandoori")) return "#d35400";
+    if (cleanId.includes("mutton")) return "#800000";
+    if (cleanId.includes("chicken")) return "#a93226";
+    if (cleanId.includes("kolambu")) return "#cd5c5c";
+    if (cleanId.includes("idly")) return "#e67e22";
+    if (cleanId.includes("garam")) return "#8e5e38";
+    if (cleanId.includes("coriander")) return "#8fbc8f";
+    if (cleanId.includes("jeera")) return "#cd853f";
+    return "#d0843e";
+  };
+
+  const triggerParticles = (compartmentIdx, spiceId) => {
+    const color = getSpiceColor(spiceId);
+    const newParticles = [];
+    const count = 18;
+    const timestamp = Date.now();
+
+    for (let i = 0; i < count; i++) {
+      const angle = Math.random() * Math.PI * 2;
+      const distance = 25 + Math.random() * 45;
+      const tx = `${Math.cos(angle) * distance}px`;
+      const ty = `${Math.sin(angle) * distance}px`;
+      const size = 3 + Math.random() * 5;
+      const delay = Math.random() * 0.15;
+
+      newParticles.push({
+        id: `${compartmentIdx}-${timestamp}-${i}`,
+        compartmentIdx,
+        tx,
+        ty,
+        size,
+        color,
+        delay
+      });
+    }
+
+    setParticles(prev => [...prev, ...newParticles]);
+
+    setTimeout(() => {
+      setParticles(prev => prev.filter(p => !newParticles.some(np => np.id === p.id)));
+    }, 1200);
+  };
+
   const fillCompartment = (spice) => {
     if (selectedCompartment === null) return;
     const newState = [...boxState];
     newState[selectedCompartment] = spice;
     setBoxState(newState);
+
+    triggerParticles(selectedCompartment, spice.id);
     
     // Automatically select next empty compartment
     const nextEmpty = newState.findIndex(item => item === null);
@@ -157,40 +211,69 @@ export default function SpiceBoxBuilder({ onAddToCart }) {
               const isSelected = selectedCompartment === idx;
               
               return (
-                <button
+                <div
                   key={idx}
-                  onClick={() => setSelectedCompartment(idx)}
                   style={{ transform }}
-                  className={`absolute w-20 h-20 sm:w-24 sm:h-24 rounded-full flex flex-col items-center justify-center text-center transition-all duration-300 overflow-hidden ${
-                    spice 
-                      ? "bg-white border-2 border-amber shadow-md" 
-                      : isSelected 
-                      ? "bg-white/20 border-2 border-dashed border-white shadow-halo scale-105" 
-                      : "bg-[#2a1a12]/40 border border-white/20 hover:bg-white/10"
-                  }`}
+                  className="absolute w-20 h-20 sm:w-24 sm:h-24 flex items-center justify-center"
                 >
-                  {spice ? (
-                    <div className="relative w-full h-full flex flex-col items-center justify-center p-1.5 group">
-                      <img src={spice.image} alt={spice.name} className="absolute inset-0 w-full h-full object-cover rounded-full opacity-90 group-hover:scale-105 transition-transform duration-350" />
-                      <div className="absolute inset-0 bg-black/40 rounded-full group-hover:bg-black/30 transition-colors pointer-events-none" />
-                      <span className="relative z-10 text-[9px] sm:text-[10px] font-bold text-white leading-tight line-clamp-2 w-full px-1">
-                        {spice.name}
-                      </span>
-                      <span className="relative z-10 text-[7px] sm:text-[8px] text-amber/90 uppercase tracking-wider mt-0.5 font-extrabold bg-white/10 px-1 py-0.5 rounded-md">
-                        {spice.size.replace(" Pack", "")} • ₹{spice.price}
-                      </span>
-                      <button
-                        onClick={(e) => clearCompartment(idx, e)}
-                        className="absolute top-1 right-1 bg-red-500 hover:bg-red-600 text-white rounded-full w-4.5 h-4.5 flex items-center justify-center text-[9px] font-bold shadow-md cursor-pointer z-25"
-                        title="Remove spice"
-                      >
-                        ✕
-                      </button>
-                    </div>
-                  ) : (
-                    <span className="text-[11px] font-semibold text-white/50">Comp {idx}</span>
-                  )}
-                </button>
+                  <button
+                    onClick={() => setSelectedCompartment(idx)}
+                    className={`w-full h-full rounded-full flex flex-col items-center justify-center text-center transition-all duration-300 overflow-hidden relative ${
+                      spice 
+                        ? "bg-white border-2 border-amber shadow-md" 
+                        : isSelected 
+                        ? "bg-white/20 border-2 border-dashed border-white shadow-halo scale-105" 
+                        : "bg-[#2a1a12]/40 border border-white/20 hover:bg-white/10"
+                    }`}
+                  >
+                    {spice ? (
+                      <div className="relative w-full h-full flex flex-col items-center justify-center p-1.5 group">
+                        <motion.img
+                          initial={{ scale: 0, rotate: -15 }}
+                          animate={{ scale: 1, rotate: 0 }}
+                          transition={{ type: "spring", stiffness: 220, damping: 18 }}
+                          src={spice.image}
+                          alt={spice.name}
+                          className="absolute inset-0 w-full h-full object-cover rounded-full opacity-90 group-hover:scale-105 transition-transform duration-350"
+                        />
+                        <div className="absolute inset-0 bg-black/40 rounded-full group-hover:bg-black/30 transition-colors pointer-events-none" />
+                        <span className="relative z-10 text-[9px] sm:text-[10px] font-bold text-white leading-tight line-clamp-2 w-full px-1">
+                          {spice.name}
+                        </span>
+                        <span className="relative z-10 text-[7px] sm:text-[8px] text-amber/90 uppercase tracking-wider mt-0.5 font-extrabold bg-white/10 px-1 py-0.5 rounded-md">
+                          {spice.size.replace(" Pack", "")} • ₹{spice.price}
+                        </span>
+                        <button
+                          onClick={(e) => clearCompartment(idx, e)}
+                          className="absolute top-1 right-1 bg-red-500 hover:bg-red-600 text-white rounded-full w-4.5 h-4.5 flex items-center justify-center text-[9px] font-bold shadow-md cursor-pointer z-25"
+                          title="Remove spice"
+                        >
+                          ✕
+                        </button>
+                      </div>
+                    ) : (
+                      <span className="text-[11px] font-semibold text-white/50">Comp {idx}</span>
+                    )}
+                  </button>
+                  {/* Spice spill particles */}
+                  {particles
+                    .filter(p => p.compartmentIdx === idx)
+                    .map(p => (
+                      <span
+                        key={p.id}
+                        className="spice-particle"
+                        style={{
+                          "--tx": p.tx,
+                          "--ty": p.ty,
+                          width: `${p.size}px`,
+                          height: `${p.size}px`,
+                          backgroundColor: p.color,
+                          animationDelay: `${p.delay}s`,
+                          zIndex: 30
+                        }}
+                      />
+                    ))}
+                </div>
               );
             })}
 
@@ -199,38 +282,65 @@ export default function SpiceBoxBuilder({ onAddToCart }) {
               const isSelected = selectedCompartment === 0;
               const spice = boxState[0];
               return (
-                <button
-                  onClick={() => setSelectedCompartment(0)}
-                  className={`absolute w-24 h-24 sm:w-28 sm:h-28 rounded-full flex flex-col items-center justify-center text-center transition-all duration-300 overflow-hidden ${
-                    spice 
-                      ? "bg-white border-4 border-amber shadow-halo" 
-                      : isSelected 
-                      ? "bg-white/20 border-2 border-dashed border-white shadow-halo scale-105" 
-                      : "bg-[#2a1a12]/50 border border-white/20 hover:bg-white/10"
-                  }`}
-                >
-                  {spice ? (
-                    <div className="relative w-full h-full flex flex-col items-center justify-center p-2 group">
-                      <img src={spice.image} alt={spice.name} className="absolute inset-0 w-full h-full object-cover rounded-full opacity-90 group-hover:scale-105 transition-transform duration-350" />
-                      <div className="absolute inset-0 bg-black/40 rounded-full group-hover:bg-black/30 transition-colors pointer-events-none" />
-                      <span className="relative z-10 text-[10px] sm:text-[11px] font-bold text-white leading-tight line-clamp-2 w-full px-1">
-                        {spice.name}
-                      </span>
-                      <span className="relative z-10 text-[8px] text-amber/90 uppercase tracking-wider mt-0.5 font-extrabold bg-white/10 px-1 py-0.5 rounded-md">
-                        {spice.size.replace(" Pack", "")} • ₹{spice.price}
-                      </span>
-                      <button
-                        onClick={(e) => clearCompartment(0, e)}
-                        className="absolute top-1 right-1 bg-red-500 hover:bg-red-600 text-white rounded-full w-4.5 h-4.5 flex items-center justify-center text-[9px] font-bold shadow-md cursor-pointer z-25"
-                        title="Remove spice"
-                      >
-                        ✕
-                      </button>
-                    </div>
-                  ) : (
-                    <span className="text-[11px] font-bold text-white/50 uppercase tracking-wider">Center</span>
-                  )}
-                </button>
+                <div className="absolute w-24 h-24 sm:w-28 sm:h-28 flex items-center justify-center z-10">
+                  <button
+                    onClick={() => setSelectedCompartment(0)}
+                    className={`w-full h-full rounded-full flex flex-col items-center justify-center text-center transition-all duration-300 overflow-hidden relative ${
+                      spice 
+                        ? "bg-white border-4 border-amber shadow-halo" 
+                        : isSelected 
+                        ? "bg-white/20 border-2 border-dashed border-white shadow-halo scale-105" 
+                        : "bg-[#2a1a12]/50 border border-white/20 hover:bg-white/10"
+                    }`}
+                  >
+                    {spice ? (
+                      <div className="relative w-full h-full flex flex-col items-center justify-center p-2 group">
+                        <motion.img
+                          initial={{ scale: 0, rotate: -15 }}
+                          animate={{ scale: 1, rotate: 0 }}
+                          transition={{ type: "spring", stiffness: 220, damping: 18 }}
+                          src={spice.image}
+                          alt={spice.name}
+                          className="absolute inset-0 w-full h-full object-cover rounded-full opacity-90 group-hover:scale-105 transition-transform duration-350"
+                        />
+                        <div className="absolute inset-0 bg-black/40 rounded-full group-hover:bg-black/30 transition-colors pointer-events-none" />
+                        <span className="relative z-10 text-[10px] sm:text-[11px] font-bold text-white leading-tight line-clamp-2 w-full px-1">
+                          {spice.name}
+                        </span>
+                        <span className="relative z-10 text-[8px] text-amber/90 uppercase tracking-wider mt-0.5 font-extrabold bg-white/10 px-1 py-0.5 rounded-md">
+                          {spice.size.replace(" Pack", "")} • ₹{spice.price}
+                        </span>
+                        <button
+                          onClick={(e) => clearCompartment(0, e)}
+                          className="absolute top-1 right-1 bg-red-500 hover:bg-red-600 text-white rounded-full w-4.5 h-4.5 flex items-center justify-center text-[9px] font-bold shadow-md cursor-pointer z-25"
+                          title="Remove spice"
+                        >
+                          ✕
+                        </button>
+                      </div>
+                    ) : (
+                      <span className="text-[11px] font-bold text-white/50 uppercase tracking-wider">Center</span>
+                    )}
+                  </button>
+                  {/* Spice spill particles */}
+                  {particles
+                    .filter(p => p.compartmentIdx === 0)
+                    .map(p => (
+                      <span
+                        key={p.id}
+                        className="spice-particle"
+                        style={{
+                          "--tx": p.tx,
+                          "--ty": p.ty,
+                          width: `${p.size}px`,
+                          height: `${p.size}px`,
+                          backgroundColor: p.color,
+                          animationDelay: `${p.delay}s`,
+                          zIndex: 30
+                        }}
+                      />
+                    ))}
+                </div>
               );
             })()}
           </div>
@@ -370,29 +480,58 @@ export default function SpiceBoxBuilder({ onAddToCart }) {
                 const isSelected = selectedCompartment === idx;
                 
                 return (
-                  <button
+                  <div
                     key={idx}
-                    type="button"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setSelectedCompartment(idx);
-                    }}
                     style={{ transform }}
-                    className={`absolute w-6 h-6 rounded-full flex items-center justify-center overflow-hidden transition-all duration-200 border cursor-pointer ${
-                      isSelected 
-                        ? "border-amber bg-white ring-2 ring-amber/40 scale-110 shadow-halo" 
-                        : spice 
-                        ? "border-white/40 bg-white" 
-                        : "border-white/10 bg-[#2a1a12]/60 hover:bg-[#2a1a12]/80"
-                    }`}
-                    title={spice ? spice.name : `Compartment ${idx}`}
+                    className="absolute w-6 h-6 flex items-center justify-center"
                   >
-                    {spice ? (
-                      <img src={spice.image} alt={spice.name} className="w-full h-full object-cover rounded-full" />
-                    ) : (
-                      <span className={`text-[8px] font-bold ${isSelected ? "text-amber" : "text-white/45"}`}>{idx}</span>
-                    )}
-                  </button>
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setSelectedCompartment(idx);
+                      }}
+                      className={`w-full h-full rounded-full flex items-center justify-center overflow-hidden transition-all duration-200 border cursor-pointer relative ${
+                        isSelected 
+                          ? "border-amber bg-white ring-2 ring-amber/40 scale-110 shadow-halo" 
+                          : spice 
+                          ? "border-white/40 bg-white" 
+                          : "border-white/10 bg-[#2a1a12]/60 hover:bg-[#2a1a12]/80"
+                      }`}
+                      title={spice ? spice.name : `Compartment ${idx}`}
+                    >
+                      {spice ? (
+                        <motion.img
+                          initial={{ scale: 0 }}
+                          animate={{ scale: 1 }}
+                          transition={{ type: "spring", stiffness: 220, damping: 18 }}
+                          src={spice.image}
+                          alt={spice.name}
+                          className="w-full h-full object-cover rounded-full"
+                        />
+                      ) : (
+                        <span className={`text-[8px] font-bold ${isSelected ? "text-amber" : "text-white/45"}`}>{idx}</span>
+                      )}
+                    </button>
+                    {/* Dynamic mini-grains spill */}
+                    {particles
+                      .filter(p => p.compartmentIdx === idx)
+                      .map(p => (
+                        <span
+                          key={p.id}
+                          className="spice-particle"
+                          style={{
+                            "--tx": `calc(${p.tx} * 0.3)`,
+                            "--ty": `calc(${p.ty} * 0.3)`,
+                            width: `${p.size * 0.6}px`,
+                            height: `${p.size * 0.6}px`,
+                            backgroundColor: p.color,
+                            animationDelay: `${p.delay}s`,
+                            zIndex: 30
+                          }}
+                        />
+                      ))}
+                  </div>
                 );
               })}
 
@@ -401,27 +540,54 @@ export default function SpiceBoxBuilder({ onAddToCart }) {
                 const isSelected = selectedCompartment === 0;
                 const spice = boxState[0];
                 return (
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setSelectedCompartment(0);
-                    }}
-                    className={`absolute w-8 h-8 rounded-full flex items-center justify-center overflow-hidden z-10 transition-all duration-200 border cursor-pointer ${
-                      isSelected 
-                        ? "border-amber bg-white ring-2 ring-amber/40 scale-110 shadow-halo" 
-                        : spice 
-                        ? "border-white/40 bg-white" 
-                        : "border-white/10 bg-[#2a1a12]/70 hover:bg-[#2a1a12]/90"
-                    }`}
-                    title={spice ? spice.name : "Center Compartment"}
-                  >
-                    {spice ? (
-                      <img src={spice.image} alt={spice.name} className="w-full h-full object-cover rounded-full" />
-                    ) : (
-                      <span className={`text-[9px] font-bold ${isSelected ? "text-amber" : "text-white/45"}`}>C</span>
-                    )}
-                  </button>
+                  <div className="absolute w-8 h-8 flex items-center justify-center z-10">
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setSelectedCompartment(0);
+                      }}
+                      className={`w-full h-full rounded-full flex items-center justify-center overflow-hidden transition-all duration-200 border cursor-pointer relative ${
+                        isSelected 
+                          ? "border-amber bg-white ring-2 ring-amber/40 scale-110 shadow-halo" 
+                          : spice 
+                          ? "border-white/40 bg-white" 
+                          : "border-white/10 bg-[#2a1a12]/70 hover:bg-[#2a1a12]/90"
+                      }`}
+                      title={spice ? spice.name : "Center Compartment"}
+                    >
+                      {spice ? (
+                        <motion.img
+                          initial={{ scale: 0 }}
+                          animate={{ scale: 1 }}
+                          transition={{ type: "spring", stiffness: 220, damping: 18 }}
+                          src={spice.image}
+                          alt={spice.name}
+                          className="w-full h-full object-cover rounded-full"
+                        />
+                      ) : (
+                        <span className={`text-[9px] font-bold ${isSelected ? "text-amber" : "text-white/45"}`}>C</span>
+                      )}
+                    </button>
+                    {/* Dynamic center-grains spill */}
+                    {particles
+                      .filter(p => p.compartmentIdx === 0)
+                      .map(p => (
+                        <span
+                          key={p.id}
+                          className="spice-particle"
+                          style={{
+                            "--tx": `calc(${p.tx} * 0.35)`,
+                            "--ty": `calc(${p.ty} * 0.35)`,
+                            width: `${p.size * 0.7}px`,
+                            height: `${p.size * 0.7}px`,
+                            backgroundColor: p.color,
+                            animationDelay: `${p.delay}s`,
+                            zIndex: 30
+                          }}
+                        />
+                      ))}
+                  </div>
                 );
               })()}
             </motion.div>
