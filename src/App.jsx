@@ -233,14 +233,21 @@ export default function App() {
     if (cleanId.startsWith("custom-box:")) {
       const parts = cleanId.split(":");
       const spiceIds = parts[1]?.split(",") || [];
-      const spiceNames = spiceIds.map(id => {
+      const spiceNames = [];
+      let totalPrice = 0;
+      spiceIds.forEach(id => {
         const p = getDynamicProductById(id);
-        return p ? p.name.replace("Namma Veetu Anjaraipetti ", "") : id;
+        if (p) {
+          spiceNames.push(p.name.replace("Namma Veetu Anjaraipetti ", ""));
+          totalPrice += p.price;
+        } else {
+          spiceNames.push(id);
+        }
       });
       return {
         id: cleanId,
         name: "Custom Anjaraipetti Spice Box",
-        price: 399,
+        price: totalPrice,
         size: `${spiceIds.length} Blends`,
         subtitle: "7-Blend Custom Anjaraipetti Box",
         description: `Customized with: ${spiceNames.join(", ")}`,

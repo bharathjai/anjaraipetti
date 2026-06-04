@@ -689,10 +689,19 @@ function isPersistenceEnabled() {
 function getProductById(productId) {
   const cleanId = String(productId || "").trim();
   if (cleanId.startsWith("custom-box:")) {
+    const parts = cleanId.split(":");
+    const spiceIds = parts[1]?.split(",") || [];
+    let totalPrice = 0;
+    spiceIds.forEach(id => {
+      const p = PRODUCTS[id];
+      if (p) {
+        totalPrice += p.price;
+      }
+    });
     return {
       id: cleanId,
       name: "Custom Anjaraipetti Spice Box",
-      price: 399,
+      price: totalPrice,
       stock: 9999
     };
   }

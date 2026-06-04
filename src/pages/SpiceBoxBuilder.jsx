@@ -3,18 +3,16 @@ import { motion, AnimatePresence } from "framer-motion";
 import { useNavigate } from "react-router-dom";
 import { products } from "../data/products";
 
-// Get only single spices and their standard sizes
+// Get only single spices with all their size variants
 const singleSpices = products
   .filter(p => p.id !== "combo-box" && p.id !== "test-product")
   .map(p => {
-    const variant = p.variants?.[0] || { id: p.id, size: p.size, price: p.price };
     return {
-      id: variant.id,
+      baseId: p.id,
       name: p.name.replace("Namma Veetu Anjaraipetti ", ""),
       image: p.image,
-      size: variant.size,
-      price: variant.price,
-      color: p.category === "veg" ? "border-emerald-500/20" : "border-red-500/20"
+      category: p.category,
+      variants: p.variants || [{ id: p.id, size: p.size, price: p.price }]
     };
   });
 
@@ -73,6 +71,7 @@ export default function SpiceBoxBuilder({ onAddToCart }) {
   };
 
   const filledCount = boxState.filter(Boolean).length;
+  const totalPrice = boxState.reduce((sum, item) => sum + (item ? item.price : 0), 0);
 
   return (
     <section className="mx-auto w-full max-w-7xl px-6 pb-20 pt-12 md:px-10">
@@ -163,8 +162,8 @@ export default function SpiceBoxBuilder({ onAddToCart }) {
                       <span className="relative z-10 text-[9px] sm:text-[10px] font-bold text-white leading-tight line-clamp-2 w-full px-1">
                         {spice.name}
                       </span>
-                      <span className="relative z-10 text-[7px] sm:text-[8px] text-white/70 uppercase tracking-widest mt-0.5 font-bold">
-                        {spice.size}
+                      <span className="relative z-10 text-[7px] sm:text-[8px] text-amber/90 uppercase tracking-wider mt-0.5 font-extrabold bg-white/10 px-1 py-0.5 rounded-md">
+                        {spice.size.replace(" Pack", "")} • ₹{spice.price}
                       </span>
                       <button
                         onClick={(e) => clearCompartment(idx, e)}
@@ -203,8 +202,8 @@ export default function SpiceBoxBuilder({ onAddToCart }) {
                       <span className="relative z-10 text-[10px] sm:text-[11px] font-bold text-white leading-tight line-clamp-2 w-full px-1">
                         {spice.name}
                       </span>
-                      <span className="relative z-10 text-[8px] text-white/70 uppercase tracking-widest mt-0.5 font-bold">
-                        {spice.size}
+                      <span className="relative z-10 text-[8px] text-amber/90 uppercase tracking-wider mt-0.5 font-extrabold bg-white/10 px-1 py-0.5 rounded-md">
+                        {spice.size.replace(" Pack", "")} • ₹{spice.price}
                       </span>
                       <button
                         onClick={(e) => clearCompartment(0, e)}
@@ -225,7 +224,7 @@ export default function SpiceBoxBuilder({ onAddToCart }) {
           <div className="w-full mt-6 flex justify-between items-center border-t border-truffle/10 pt-4">
             <div className="text-left">
               <span className="text-[10px] uppercase font-bold tracking-widest text-truffle/55">Bundle Price</span>
-              <p className="text-2xl font-bold text-cocoa">₹399.00</p>
+              <p className="text-2xl font-bold text-cocoa">₹{totalPrice.toFixed(2)}</p>
             </div>
             <div className="text-right">
               <span className="text-[10px] uppercase font-bold tracking-widest text-truffle/55">Filled Slots</span>
@@ -249,25 +248,50 @@ export default function SpiceBoxBuilder({ onAddToCart }) {
               </div>
             )}
 
-            <div className="space-y-3 max-h-[360px] overflow-y-auto pr-1 scrollbar-thin">
+            <div className="space-y-3.5 max-h-[400px] overflow-y-auto pr-1 scrollbar-thin">
               {singleSpices.map((spice) => (
-                <button
-                  key={spice.id}
-                  disabled={selectedCompartment === null}
-                  onClick={() => fillCompartment(spice)}
-                  className={`w-full flex items-center gap-3 p-3 rounded-2xl border text-left transition-all duration-200 ${
+                <div
+                  key={spice.baseId}
+                  className={`w-full flex flex-col p-3 rounded-2xl border transition-all duration-200 ${
                     selectedCompartment === null 
-                      ? "opacity-60 cursor-not-allowed border-truffle/5 bg-truffle/5"
-                      : "border-truffle/10 hover:border-amber hover:bg-amber/5 bg-white/90 active:scale-[0.99]"
+                      ? "opacity-60 border-truffle/5 bg-truffle/5"
+                      : "border-truffle/10 bg-white/90 hover:border-amber/40"
                   }`}
                 >
-                  <img src={spice.image} alt={spice.name} className="w-10 h-10 object-cover rounded-xl border border-truffle/10" />
-                  <div className="flex-1 min-w-0">
-                    <h4 className="text-xs font-bold text-espresso truncate">{spice.name}</h4>
-                    <p className="text-[10px] text-truffle/60 font-semibold mt-0.5">{spice.size}</p>
+                  <div className="flex items-center gap-3">
+                    <img src={spice.image} alt={spice.name} className="w-10 h-10 object-cover rounded-xl border border-truffle/10" />
+                    <div className="flex-1 min-w-0">
+                      <h4 className="text-xs font-bold text-espresso truncate">{spice.name}</h4>
+                      <p className="text-[9px] uppercase tracking-widest text-[#d0843e] font-bold">
+                        {spice.category === "veg" ? "Vegetarian" : "Non-Vegetarian"}
+                      </p>
+                    </div>
                   </div>
-                  <span className="text-[11px] font-bold text-cocoa bg-biscuit/20 px-2 py-0.5 rounded-lg shrink-0">Select</span>
-                </button>
+                  
+                  {/* Size/Gram selectors */}
+                  <div className="mt-3 flex flex-wrap gap-1.5 border-t border-truffle/5 pt-2">
+                    {spice.variants.map((v) => (
+                      <button
+                        key={v.id}
+                        disabled={selectedCompartment === null}
+                        onClick={() => fillCompartment({
+                          id: v.id,
+                          name: spice.name,
+                          image: spice.image,
+                          size: v.size,
+                          price: v.price
+                        })}
+                        className={`flex-1 text-[10px] font-bold py-1.5 px-2 rounded-lg border text-center transition-all cursor-pointer ${
+                          selectedCompartment === null
+                            ? "border-truffle/10 bg-truffle/5 text-truffle/40 cursor-not-allowed"
+                            : "border-cocoa/20 bg-cocoa/5 text-cocoa hover:bg-[#d0843e] hover:text-white hover:border-[#d0843e] active:scale-[0.97]"
+                        }`}
+                      >
+                        {v.size.replace(" Pack", "")} (₹{v.price})
+                      </button>
+                    ))}
+                  </div>
+                </div>
               ))}
             </div>
           </div>
