@@ -1942,54 +1942,7 @@ export default function AdminOrdersPage() {
             </div>
           </div>
 
-          {/* Inventory Safety Levels Grid */}
-          <div className="rounded-3xl border border-truffle/10 bg-white/75 p-6 shadow-luxe backdrop-blur-xl">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
-              <div>
-                <h3 className="font-display text-2xl font-bold text-espresso">Inventory & Safety Levels</h3>
-                <p className="text-xs text-truffle/70">Real-time stock monitoring and restocking alerts</p>
-              </div>
-              <span className="self-start sm:self-auto text-[10px] font-bold uppercase tracking-wider bg-amber/10 px-3 py-1 rounded-full text-[#d0843e]">
-                {productsState.filter(p => p.stock < 30).length} Spices Low in Stock
-              </span>
-            </div>
-            
-            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-              {productsState.map((product) => {
-                const stock = product.stock ?? 0;
-                let statusColor = "bg-emerald-500";
-                let statusText = "Fresh (In Stock)";
-                let statusBg = "bg-emerald-50/50 border-emerald-200 text-emerald-800";
-                
-                if (stock < 10) {
-                  statusColor = "bg-red-500 animate-pulse";
-                  statusText = "Critical Restock";
-                  statusBg = "bg-red-50/50 border-red-200 text-red-800";
-                } else if (stock < 30) {
-                  statusColor = "bg-amber-500 animate-pulse";
-                  statusText = "Low Inventory";
-                  statusBg = "bg-amber-50/50 border-amber-200 text-amber-800";
-                }
-                
-                return (
-                  <div key={product.id} className="p-4 rounded-2xl border border-truffle/5 bg-white flex flex-col justify-between gap-3 hover:border-truffle/15 transition-all">
-                    <div>
-                      <h4 className="font-bold text-sm text-espresso truncate">{product.name}</h4>
-                      <p className="text-[10px] text-truffle/60 font-semibold">{product.size}</p>
-                    </div>
-                    
-                    <div className="flex items-center justify-between mt-2 pt-2 border-t border-truffle/5">
-                      <span className="text-xs text-truffle/70 font-semibold">Stock: <span className="font-bold text-espresso">{stock} units</span></span>
-                      <span className={`inline-flex items-center gap-1.5 rounded-full border px-2 py-0.5 text-[9px] font-bold ${statusBg}`}>
-                        <span className={`h-1.5 w-1.5 rounded-full ${statusColor}`} />
-                        {statusText}
-                      </span>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
+
         </div>
       ) : (
         <>
