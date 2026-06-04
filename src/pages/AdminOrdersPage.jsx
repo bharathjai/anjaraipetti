@@ -700,6 +700,36 @@ export default function AdminOrdersPage() {
     document.body.removeChild(link);
   };
 
+  const [downloadingReport, setDownloadingReport] = useState(false);
+
+  const downloadMonthlyBusinessReportPDF = async () => {
+    try {
+      setDownloadingReport(true);
+      const monthParam = exportMode === "month" ? selectedExportMonth : "all";
+      const response = await fetch(`${API_BASE_URL}/api/admin/reports/business?month=${monthParam}`, {
+        headers: {
+          Authorization: `Bearer ${adminToken}`
+        }
+      });
+      if (!response.ok) throw new Error("Failed to download PDF report");
+      
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `Business_Report_${monthParam}_${new Date().toISOString().split("T")[0]}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+    } catch (err) {
+      alert("Unable to generate PDF business report right now.");
+      console.error(err);
+    } finally {
+      setDownloadingReport(false);
+    }
+  };
+
   const [adminDeliveryChargeEnabled, setAdminDeliveryChargeEnabled] = useState(true);
   const [updatingDeliverySetting, setUpdatingDeliverySetting] = useState(false);
   
@@ -713,6 +743,7 @@ export default function AdminOrdersPage() {
           category: p.category,
           price: v.price,
           pendingPrice: String(v.price),
+          stock: 150,
           updating: false
         }));
       }
@@ -723,6 +754,7 @@ export default function AdminOrdersPage() {
         category: p.category,
         price: p.price,
         pendingPrice: String(p.price),
+        stock: 150,
         updating: false
       }];
     });
@@ -730,28 +762,40 @@ export default function AdminOrdersPage() {
 
   useEffect(() => {
     if (!adminToken) return;
-    const fetchPrices = async () => {
+    const fetchPricesAndInventory = async () => {
       try {
-        const response = await fetch(`${API_BASE_URL}/api/products/prices`);
-        if (response.ok) {
-          const payload = await response.json();
-          if (payload.ok && payload.prices) {
-            setProductsState((prev) =>
-              prev.map((item) => {
-                if (payload.prices[item.id] !== undefined) {
-                  return {
-                    ...item,
-                    price: payload.prices[item.id],
-                    pendingPrice: String(payload.prices[item.id])
-                  };
-                }
-                return item;
-              })
-            );
-          }
+        const resPrices = await fetch(`${API_BASE_URL}/api/products/prices`);
+        const resInventory = await fetch(`${API_BASE_URL}/api/admin/inventory`, {
+          headers: { Authorization: `Bearer ${adminToken}` }
+        });
+        
+        let prices = {};
+        let inventory = {};
+        
+        if (resPrices.ok) {
+          const payload = await resPrices.json();
+          if (payload.ok && payload.prices) prices = payload.prices;
         }
+        if (resInventory.ok) {
+          const payload = await resInventory.json();
+          if (payload.ok && payload.inventory) inventory = payload.inventory;
+        }
+        
+        setProductsState((prev) =>
+          prev.map((item) => {
+            const nextItem = { ...item };
+            if (prices[item.id] !== undefined) {
+              nextItem.price = prices[item.id];
+              nextItem.pendingPrice = String(prices[item.id]);
+            }
+            if (inventory[item.id] !== undefined) {
+              nextItem.stock = inventory[item.id];
+            }
+            return nextItem;
+          })
+        );
       } catch (err) {
-        console.error("Failed to load prices in admin:", err);
+        console.error("Failed to load prices/inventory:", err);
       }
     };
 
@@ -769,7 +813,7 @@ export default function AdminOrdersPage() {
       }
     };
 
-    fetchPrices();
+    fetchPricesAndInventory();
     fetchSettings();
   }, [adminToken]);
 
@@ -1537,19 +1581,32 @@ export default function AdminOrdersPage() {
             {/* Right side: Monthly summary export */}
             <div className="flex flex-col sm:flex-row sm:items-center gap-3 border-t border-truffle/10 pt-4 md:border-t-0 md:pt-0">
               <div className="text-left md:text-right">
-                <h4 className="text-sm font-bold text-espresso">Monthly Sales Summary</h4>
-                <p className="text-xs text-truffle/60">Export a summary of metrics grouped by month</p>
+                <h4 className="text-sm font-bold text-espresso">Business Insights Report</h4>
+                <p className="text-xs text-truffle/60">Generate PDF business analyses or export CSV summaries</p>
               </div>
-              <button
-                type="button"
-                onClick={exportMonthlySummaryToCSV}
-                className="flex items-center gap-2 rounded-xl border border-cocoa text-cocoa hover:bg-cocoa/10 px-5 py-2.5 text-xs font-bold uppercase tracking-widest transition"
-              >
-                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="h-4 w-4">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h3.75M9 15h3.75M9 18h3.75m3 .75H18a2.25 2.25 0 0 0 2.25-2.25V6.108c0-1.135-.845-2.098-1.976-2.192a48.424 48.424 0 0 0-1.123-.08m-5.801 0c-.065.21-.1.433-.1.664 0 .414.336.75.75.75h4.5a.75.75 0 0 0 .75-.75 2.25 2.25 0 0 0-.1-.664m-5.8 0A2.251 2.251 0 0 1 13.5 2.25H15c1.03 0 1.9.693 2.166 1.638m-7.377 12.408.01-.01.007-.007a2.25 2.25 0 0 1 3.178 0l.009.01m-.012-11.826H6.25A2.25 2.25 0 0 0 4 5.25v13.5A2.25 2.25 0 0 0 6.25 21h4.007c-.019-.223-.007-.45.035-.678l.6-3a2.25 2.25 0 0 1 1.258-1.579l1.196-.598m-1.628-2.614a2.25 2.25 0 0 1-.822-2.167l.192-.962a2.25 2.25 0 0 1 1.579-1.706l1.24-.31" />
-                </svg>
-                Export Monthly Summary
-              </button>
+              <div className="flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  onClick={exportMonthlySummaryToCSV}
+                  className="flex items-center gap-2 rounded-xl border border-cocoa text-cocoa hover:bg-cocoa/10 px-4 py-2.5 text-xs font-bold uppercase tracking-widest transition"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="h-4 w-4">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h3.75M9 15h3.75M9 18h3.75m3 .75H18a2.25 2.25 0 0 0 2.25-2.25V6.108c0-1.135-.845-2.098-1.976-2.192a48.424 48.424 0 0 0-1.123-.08m-5.801 0c-.065.21-.1.433-.1.664 0 .414.336.75.75.75h4.5a.75.75 0 0 0 .75-.75 2.25 2.25 0 0 0-.1-.664m-5.8 0A2.251 2.251 0 0 1 13.5 2.25H15c1.03 0 1.9.693 2.166 1.638m-7.377 12.408.01-.01.007-.007a2.25 2.25 0 0 1 3.178 0l.009.01m-.012-11.826H6.25A2.25 2.25 0 0 0 4 5.25v13.5A2.25 2.25 0 0 0 6.25 21h4.007c-.019-.223-.007-.45.035-.678l.6-3a2.25 2.25 0 0 1 1.258-1.579l1.196-.598m-1.628-2.614a2.25 2.25 0 0 1-.822-2.167l.192-.962a2.25 2.25 0 0 1 1.579-1.706l1.24-.31" />
+                  </svg>
+                  Export CSV
+                </button>
+                <button
+                  type="button"
+                  disabled={downloadingReport}
+                  onClick={downloadMonthlyBusinessReportPDF}
+                  className="flex items-center gap-2 rounded-xl bg-cocoa hover:bg-cocoa/90 px-4 py-2.5 text-xs font-bold uppercase tracking-widest text-white transition shadow-sm disabled:opacity-60 disabled:cursor-not-allowed"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="h-4 w-4">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 0 0-9-9Z" />
+                  </svg>
+                  {downloadingReport ? "Generating..." : "Generate PDF"}
+                </button>
+              </div>
             </div>
           </div>
 
@@ -1882,6 +1939,55 @@ export default function AdminOrdersPage() {
                   </div>
                 )}
               </div>
+            </div>
+          </div>
+
+          {/* Inventory Safety Levels Grid */}
+          <div className="rounded-3xl border border-truffle/10 bg-white/75 p-6 shadow-luxe backdrop-blur-xl">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+              <div>
+                <h3 className="font-display text-2xl font-bold text-espresso">Inventory & Safety Levels</h3>
+                <p className="text-xs text-truffle/70">Real-time stock monitoring and restocking alerts</p>
+              </div>
+              <span className="self-start sm:self-auto text-[10px] font-bold uppercase tracking-wider bg-amber/10 px-3 py-1 rounded-full text-[#d0843e]">
+                {productsState.filter(p => p.stock < 30).length} Spices Low in Stock
+              </span>
+            </div>
+            
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+              {productsState.map((product) => {
+                const stock = product.stock ?? 0;
+                let statusColor = "bg-emerald-500";
+                let statusText = "Fresh (In Stock)";
+                let statusBg = "bg-emerald-50/50 border-emerald-200 text-emerald-800";
+                
+                if (stock < 10) {
+                  statusColor = "bg-red-500 animate-pulse";
+                  statusText = "Critical Restock";
+                  statusBg = "bg-red-50/50 border-red-200 text-red-800";
+                } else if (stock < 30) {
+                  statusColor = "bg-amber-500 animate-pulse";
+                  statusText = "Low Inventory";
+                  statusBg = "bg-amber-50/50 border-amber-200 text-amber-800";
+                }
+                
+                return (
+                  <div key={product.id} className="p-4 rounded-2xl border border-truffle/5 bg-white flex flex-col justify-between gap-3 hover:border-truffle/15 transition-all">
+                    <div>
+                      <h4 className="font-bold text-sm text-espresso truncate">{product.name}</h4>
+                      <p className="text-[10px] text-truffle/60 font-semibold">{product.size}</p>
+                    </div>
+                    
+                    <div className="flex items-center justify-between mt-2 pt-2 border-t border-truffle/5">
+                      <span className="text-xs text-truffle/70 font-semibold">Stock: <span className="font-bold text-espresso">{stock} units</span></span>
+                      <span className={`inline-flex items-center gap-1.5 rounded-full border px-2 py-0.5 text-[9px] font-bold ${statusBg}`}>
+                        <span className={`h-1.5 w-1.5 rounded-full ${statusColor}`} />
+                        {statusText}
+                      </span>
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           </div>
         </div>

@@ -216,8 +216,14 @@ export default function RecipeCompanion({ onAddMultipleToCart }) {
                   <span className="text-[10px] font-bold uppercase tracking-wider text-truffle/55">Required Spices:</span>
                   <div className="mt-2 space-y-1.5 mb-5">
                     {recipe.spicesNeeded.map((spice) => (
+<<<<<<< HEAD
                       <div key={spice.id} className="text-xs text-espresso">
                         <span className="font-semibold">· {spice.name}</span>
+=======
+                      <div key={spice.id} className="flex justify-between text-xs text-espresso">
+                        <span className="font-semibold">· {spice.name}</span>
+                        <span className="font-mono text-truffle/70">₹{spice.price}</span>
+>>>>>>> 77080c9 (Enhance mobile spice box with interactive mini-box and dynamic spice image previews)
                       </div>
                     ))}
                   </div>

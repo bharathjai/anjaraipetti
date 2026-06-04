@@ -12,6 +12,7 @@ import jwt from "jsonwebtoken";
 import mongoose from "mongoose";
 import Razorpay from "razorpay";
 import { generateInvoicePDF } from "./pdfGenerator.js";
+import { generateBusinessReportPDF } from "./reportGenerator.js";
 import nodemailer from "nodemailer";
 import admin from "firebase-admin";
 
@@ -686,7 +687,16 @@ function isPersistenceEnabled() {
 }
 
 function getProductById(productId) {
-  return PRODUCTS[String(productId || "").trim()] || null;
+  const cleanId = String(productId || "").trim();
+  if (cleanId.startsWith("custom-box:")) {
+    return {
+      id: cleanId,
+      name: "Custom Anjaraipetti Spice Box",
+      price: 399,
+      stock: 9999
+    };
+  }
+  return PRODUCTS[cleanId] || null;
 }
 
 function clampQuantity(productId, value) {
@@ -1052,7 +1062,17 @@ async function createFinalOrder({ items, customer, address, payment, userId }) {
   await saveOrder(order);
   
   processedItems.forEach(item => {
-    inventoryByProduct[item.productId] = Math.max(0, Number(inventoryByProduct[item.productId] ?? 0) - item.quantity);
+    if (item.productId.startsWith("custom-box:")) {
+      const parts = item.productId.split(":");
+      const spiceIds = parts[1]?.split(",") || [];
+      spiceIds.forEach(id => {
+        if (inventoryByProduct[id] !== undefined) {
+          inventoryByProduct[id] = Math.max(0, Number(inventoryByProduct[id] ?? 0) - item.quantity);
+        }
+      });
+    } else {
+      inventoryByProduct[item.productId] = Math.max(0, Number(inventoryByProduct[item.productId] ?? 0) - item.quantity);
+    }
   });
   await persistState();
   broadcastState();
@@ -1564,6 +1584,114 @@ app.post("/api/admin/notifications/test", requireAdminAuth, async (req, res) => 
   }
 });
 
+app.get("/api/admin/reports/business", requireAdminAuth, async (req, res) => {
+  const selectedMonth = String(req.query.month || "all").trim();
+  try {
+    let orders = await listOrders(null, true);
+    
+    let monthLabel = "All Time";
+    if (selectedMonth !== "all") {
+      orders = orders.filter((o) => {
+        if (!o.createdAt) return false;
+        const date = new Date(o.createdAt);
+        const year = date.getFullYear();
+        const month = date.getMonth();
+        const key = `${year}-${String(month + 1).padStart(2, "0")}`;
+        return key === selectedMonth;
+      });
+      if (orders.length > 0) {
+        const first = new Date(orders[0].createdAt);
+        monthLabel = first.toLocaleDateString("en-IN", { month: "long", year: "numeric" });
+      } else {
+        monthLabel = selectedMonth;
+      }
+    }
+
+    const nonCancelledOrders = orders.filter(o => o.status !== "Cancelled");
+    const totalOrdersCount = orders.length;
+    const totalRevenue = nonCancelledOrders.reduce((sum, o) => sum + (o.grandTotal || o.total || 0), 0);
+    const averageOrderValue = nonCancelledOrders.length > 0 ? totalRevenue / nonCancelledOrders.length : 0;
+    
+    const statusCounts = {
+      "Order confirmed": 0,
+      "Packed": 0,
+      "Shipped": 0,
+      "Delivered": 0,
+      "Cancelled": 0
+    };
+    orders.forEach(o => {
+      const status = o.status || "Order confirmed";
+      if (statusCounts[status] !== undefined) statusCounts[status]++;
+    });
+
+    const monthlyMap = {};
+    orders.forEach(o => {
+      if (!o.createdAt) return;
+      const date = new Date(o.createdAt);
+      const year = date.getFullYear();
+      const month = date.getMonth();
+      const key = `${year}-${String(month + 1).padStart(2, "0")}`;
+      const label = date.toLocaleDateString("en-IN", { month: "short", year: "2-digit" });
+      
+      if (!monthlyMap[key]) {
+        monthlyMap[key] = { key, label, revenue: 0, count: 0, orderVolume: 0 };
+      }
+      monthlyMap[key].orderVolume += 1;
+      if (o.status !== "Cancelled") {
+        monthlyMap[key].revenue += (o.grandTotal || o.total || 0);
+        monthlyMap[key].count += 1;
+      }
+    });
+    const monthlyData = Object.values(monthlyMap).sort((a, b) => a.key.localeCompare(b.key));
+
+    const productMap = {};
+    nonCancelledOrders.forEach(o => {
+      const items = o.items || [];
+      items.forEach(item => {
+        const pid = item.productId;
+        if (!pid) return;
+        if (!productMap[pid]) {
+          productMap[pid] = { id: pid, name: item.productName || pid, quantity: 0, revenue: 0 };
+        }
+        productMap[pid].quantity += (item.quantity || 0);
+        productMap[pid].revenue += (item.subtotal || 0);
+      });
+    });
+    const topProducts = Object.values(productMap).sort((a, b) => b.revenue - a.revenue).slice(0, 5);
+
+    const locationMap = {};
+    nonCancelledOrders.forEach(o => {
+      const city = o.address?.city || "Unknown";
+      const state = o.address?.state || "Unknown";
+      const key = `${city}, ${state}`;
+      if (!locationMap[key]) {
+        locationMap[key] = { label: key, count: 0, revenue: 0 };
+      }
+      locationMap[key].count++;
+      locationMap[key].revenue += (o.grandTotal || o.total || 0);
+    });
+    const topLocations = Object.values(locationMap).sort((a, b) => b.revenue - a.revenue).slice(0, 5);
+
+    const stats = {
+      totalOrdersCount,
+      totalRevenue,
+      averageOrderValue,
+      statusCounts,
+      monthlyData,
+      topProducts,
+      topLocations
+    };
+
+    const pdfBuffer = await generateBusinessReportPDF(stats, monthLabel);
+    res.setHeader("Content-Type", "application/pdf");
+    res.setHeader("Content-Disposition", `attachment; filename="Business_Report_${selectedMonth}.pdf"`);
+    return res.send(pdfBuffer);
+  } catch (err) {
+    console.error("Failed to generate monthly business report PDF:", err);
+    return res.status(500).json({ ok: false, message: "Server error generating PDF report" });
+  }
+});
+
 app.get("/api/settings", (req, res) => {
   return res.json({ ok: true, deliveryChargeEnabled });
 });
@@ -1598,6 +1726,10 @@ app.get("/api/products/prices", (req, res) => {
     prices[id] = PRODUCTS[id].price;
   });
   return res.json({ ok: true, prices });
+});
+
+app.get("/api/admin/inventory", requireAdminAuth, (req, res) => {
+  return res.json({ ok: true, inventory: inventoryByProduct });
 });
 
 app.post("/api/admin/products/prices", requireAdminAuth, async (req, res) => {

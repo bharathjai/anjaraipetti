@@ -17,6 +17,7 @@ import ProductsPage from "./pages/ProductsPage";
 import RecipePage from "./pages/RecipePage";
 import MyOrdersPage from "./pages/MyOrdersPage";
 import ProfilePage from "./pages/ProfilePage";
+import SpiceBoxBuilder from "./pages/SpiceBoxBuilder";
 import RecipeCompanion from "./pages/RecipeCompanion";
 
 const ingredients = [
@@ -228,15 +229,35 @@ export default function App() {
     if (!dynamicProducts || dynamicProducts.length === 0) {
       return null;
     }
+    const cleanId = String(productId || "").trim();
+    if (cleanId.startsWith("custom-box:")) {
+      const parts = cleanId.split(":");
+      const spiceIds = parts[1]?.split(",") || [];
+      const spiceNames = spiceIds.map(id => {
+        const p = getDynamicProductById(id);
+        return p ? p.name.replace("Namma Veetu Anjaraipetti ", "") : id;
+      });
+      return {
+        id: cleanId,
+        name: "Custom Anjaraipetti Spice Box",
+        price: 399,
+        size: `${spiceIds.length} Blends`,
+        subtitle: "7-Blend Custom Anjaraipetti Box",
+        description: `Customized with: ${spiceNames.join(", ")}`,
+        image: "/images/combo-box.jpg",
+        isCustomBox: true,
+        selectedSpices: spiceIds
+      };
+    }
     for (const product of dynamicProducts) {
-      if (product.id === productId) {
+      if (product.id === cleanId) {
         return {
           ...product,
           price: product.variants?.[0]?.price || product.price || 0,
           size: product.variants?.[0]?.size || product.size || ""
         };
       }
-      const variant = product.variants?.find(v => v.id === productId);
+      const variant = product.variants?.find(v => v.id === cleanId);
       if (variant) {
         return {
           ...product,
@@ -300,6 +321,7 @@ export default function App() {
         />
         <Route path="/order/:orderId" element={<OrderSuccessPage />} />
         <Route path="/recipe/:productId" element={<RecipePage />} />
+        <Route path="/spice-builder" element={<SpiceBoxBuilder onAddToCart={addToCart} />} />
         <Route path="/recipe-companion" element={<RecipeCompanion onAddMultipleToCart={addMultipleToCart} />} />
         <Route path="/my-orders" element={<MyOrdersPage onAddMultipleToCart={addMultipleToCart} />} />
         <Route path="/profile" element={<ProfilePage />} />
