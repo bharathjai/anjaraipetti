@@ -1554,7 +1554,7 @@ export default function AdminOrdersPage() {
           </div>
 
           {/* Middle Analytics Grid */}
-          <div className="grid gap-8 lg:grid-cols-3">
+          <div className="grid grid-cols-1 gap-8 lg:grid-cols-3">
             {/* Chart Card */}
             <div className="lg:col-span-2 rounded-3xl border border-truffle/10 bg-white/75 p-6 shadow-luxe backdrop-blur-xl flex flex-col justify-between">
               <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
@@ -1784,7 +1784,7 @@ export default function AdminOrdersPage() {
           </div>
 
           {/* Bottom Analytics Grid */}
-          <div className="grid gap-8 lg:grid-cols-3">
+          <div className="grid grid-cols-1 gap-8 lg:grid-cols-3">
             {/* Top Products Card (Premium) */}
             <div className="lg:col-span-2 rounded-3xl border border-truffle/10 bg-white/75 p-6 shadow-luxe backdrop-blur-xl">
               <h3 className="font-display text-2xl font-bold text-espresso">Top Selling Products</h3>
@@ -1799,8 +1799,8 @@ export default function AdminOrdersPage() {
                     const relativePct = Math.round((p.revenue / topRevenue) * 100);
 
                     return (
-                      <div key={p.id} className="group relative flex items-center justify-between gap-4 p-3 rounded-2xl hover:bg-truffle/5 transition-colors">
-                        <div className="flex-1 min-w-0">
+                      <div key={p.id} className="group relative flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4 p-3 rounded-2xl hover:bg-truffle/5 transition-colors">
+                        <div className="flex-1 min-w-0 w-full">
                           <div className="flex items-center gap-2">
                             <span className="text-xs font-bold text-cocoa/80 font-mono">#{idx + 1}</span>
                             <h4 className="font-semibold text-sm text-espresso truncate">{p.name}</h4>
@@ -1812,7 +1812,7 @@ export default function AdminOrdersPage() {
                           </div>
                         </div>
 
-                        <div className="text-right shrink-0">
+                        <div className="text-left sm:text-right shrink-0 flex items-center justify-between sm:block w-full sm:w-auto mt-1 sm:mt-0 pt-2 sm:pt-0 border-t border-truffle/5 sm:border-t-0">
                           <p className="font-bold text-sm text-truffle">{formatINR(p.revenue)}</p>
                           <p className="text-[11px] font-semibold text-truffle/60">{p.quantity} units sold</p>
                         </div>
@@ -1856,7 +1856,7 @@ export default function AdminOrdersPage() {
                     <div className="flex w-full items-center justify-center text-truffle/50">No data</div>
                   )}
                 </div>
-                <div className="mt-2 flex items-center justify-between text-[11px] text-truffle/60">
+                <div className="mt-2 flex flex-wrap items-center justify-between gap-2 text-[11px] text-truffle/60">
                   <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-indigo-600" /> Razorpay ({stats.paymentStats.razorpay})</span>
                   <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-amber-700" /> COD ({stats.paymentStats.cod})</span>
                 </div>
@@ -1871,9 +1871,9 @@ export default function AdminOrdersPage() {
                 ) : (
                   <div className="space-y-2">
                     {stats.topLocations.map((loc) => (
-                      <div key={loc.label} className="flex justify-between items-center text-xs">
-                        <span className="font-semibold text-espresso truncate max-w-[150px]">{loc.label}</span>
-                        <div className="flex gap-3 text-right">
+                      <div key={loc.label} className="flex justify-between items-center text-xs py-1">
+                        <span className="font-semibold text-espresso truncate flex-1 min-w-0 pr-2">{loc.label}</span>
+                        <div className="flex gap-3 text-right shrink-0">
                           <span className="text-truffle font-bold">{formatINR(loc.revenue)}</span>
                           <span className="text-truffle/60 text-[10px] font-mono">({loc.count} ord)</span>
                         </div>
