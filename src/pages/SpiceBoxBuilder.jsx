@@ -25,13 +25,27 @@ export default function SpiceBoxBuilder({ onAddToCart }) {
 
   useEffect(() => {
     const handleScroll = () => {
-      if (window.scrollY > 220) {
-        setShowFloatingBox(true);
+      const mainCard = document.getElementById("main-builder-card");
+      if (mainCard) {
+        const rect = mainCard.getBoundingClientRect();
+        // Show floating box only when the main box builder card has scrolled mostly out of view (its bottom is above 120px of the viewport)
+        if (rect.bottom < 120) {
+          setShowFloatingBox(true);
+        } else {
+          setShowFloatingBox(false);
+        }
       } else {
-        setShowFloatingBox(false);
+        // Fallback to static scroll value
+        if (window.scrollY > 520) {
+          setShowFloatingBox(true);
+        } else {
+          setShowFloatingBox(false);
+        }
       }
     };
     window.addEventListener("scroll", handleScroll);
+    // Trigger immediately in case they refresh while scrolled
+    handleScroll();
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
 
@@ -121,7 +135,7 @@ export default function SpiceBoxBuilder({ onAddToCart }) {
       <div className="flex flex-col lg:flex-row gap-12 items-stretch">
         
         {/* Left Interactive Builder Visual */}
-        <div className="flex-1 rounded-[2.5rem] border border-truffle/10 bg-white/75 p-8 shadow-luxe backdrop-blur-xl flex flex-col justify-between items-center min-h-[500px]">
+        <div id="main-builder-card" className="flex-1 rounded-[2.5rem] border border-truffle/10 bg-white/75 p-8 shadow-luxe backdrop-blur-xl flex flex-col justify-between items-center min-h-[500px]">
           <div className="text-center w-full mb-6">
             <span className="text-xs uppercase tracking-[0.3em] text-[#d0843e] font-bold">Anjaraipetti Box</span>
             <h1 className="mt-2 font-display text-4xl text-espresso font-semibold">Craft Your Custom Blend Box</h1>
