@@ -38,10 +38,12 @@ body {
     will-change: transform;
   }
 
-  button:hover:not(:disabled) {
-    transform: translateY(-2px);
-    box-shadow: 0 10px 22px rgba(90, 50, 25, 0.2);
-    filter: saturate(1.04);
+  @media (hover: hover) {
+    button:hover:not(:disabled) {
+      transform: translateY(-2px);
+      box-shadow: 0 10px 22px rgba(90, 50, 25, 0.2);
+      filter: saturate(1.04);
+    }
   }
 
   button:active:not(:disabled) {
@@ -57,10 +59,12 @@ body {
     will-change: transform;
   }
 
-  .btn-hover:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 10px 22px rgba(90, 50, 25, 0.2);
-    filter: saturate(1.04);
+  @media (hover: hover) {
+    .btn-hover:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 10px 22px rgba(90, 50, 25, 0.2);
+      filter: saturate(1.04);
+    }
   }
 
   .btn-hover:active {
