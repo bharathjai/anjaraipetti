@@ -55,6 +55,40 @@ export default function CheckoutPage({ cartItems, onClearCart, deliveryChargeEna
   const [isFetchingPincode, setIsFetchingPincode] = useState(false);
   const [bypassLogin, setBypassLogin] = useState(false);
 
+  const [couponCode, setCouponCode] = useState("");
+  const [appliedCoupon, setAppliedCoupon] = useState("");
+  const [couponError, setCouponError] = useState("");
+  const [couponSuccess, setCouponSuccess] = useState("");
+  const [isApplyingCoupon, setIsApplyingCoupon] = useState(false);
+
+  const handleApplyCoupon = async () => {
+    if (!couponCode.trim()) {
+      setCouponError("Enter a coupon code");
+      return;
+    }
+    setIsApplyingCoupon(true);
+    setCouponError("");
+    setCouponSuccess("");
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/coupons/validate`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ code: couponCode })
+      });
+      const payload = await response.json();
+      if (response.ok && payload.valid) {
+        setAppliedCoupon(couponCode.trim().toUpperCase());
+        setCouponSuccess(payload.message || "Free delivery applied!");
+      } else {
+        setCouponError(payload.message || "Invalid coupon code");
+      }
+    } catch (err) {
+      setCouponError("Failed to validate coupon");
+    } finally {
+      setIsApplyingCoupon(false);
+    }
+  };
+
   // Pre-fill checkout form details if user is authenticated
   useEffect(() => {
     if (user) {
@@ -155,7 +189,7 @@ export default function CheckoutPage({ cartItems, onClearCart, deliveryChargeEna
 
   const subtotal = useMemo(() => cartItems?.reduce((sum, item) => sum + item.product.price * item.quantity, 0) || 0, [cartItems]);
   const hasTestProduct = useMemo(() => cartItems?.some(item => item.product.id === "test-product" || item.product.id.startsWith("test-product")) || false, [cartItems]);
-  const deliveryFee = useMemo(() => !deliveryChargeEnabled || hasTestProduct ? 0 : (subtotal >= 299 ? 0 : 50), [subtotal, hasTestProduct, deliveryChargeEnabled]);
+  const deliveryFee = useMemo(() => !deliveryChargeEnabled || hasTestProduct || appliedCoupon ? 0 : (subtotal >= 299 ? 0 : 50), [subtotal, hasTestProduct, deliveryChargeEnabled, appliedCoupon]);
   const total = useMemo(() => subtotal + deliveryFee, [subtotal, deliveryFee]);
 
   // Don't redirect if truck animation is in progress or order is confirmed
@@ -338,7 +372,8 @@ export default function CheckoutPage({ cartItems, onClearCart, deliveryChargeEna
         address,
         payment: {
           method: "cod"
-        }
+        },
+        couponCode: appliedCoupon
       })
     });
     const payload = await response.json();
@@ -362,7 +397,8 @@ export default function CheckoutPage({ cartItems, onClearCart, deliveryChargeEna
         ...(token ? { Authorization: `Bearer ${token}` } : {})
       },
       body: JSON.stringify({
-        items: cartItems.map((item) => ({ productId: item.product.id, quantity: item.quantity }))
+        items: cartItems.map((item) => ({ productId: item.product.id, quantity: item.quantity })),
+        couponCode: appliedCoupon
       })
     });
     const createOrderPayload = await createOrderResponse.json();
@@ -460,7 +496,8 @@ export default function CheckoutPage({ cartItems, onClearCart, deliveryChargeEna
                 razorpayOrderId: response.razorpay_order_id,
                 razorpayPaymentId: response.razorpay_payment_id,
                 razorpaySignature: response.razorpay_signature
-              }
+              },
+              couponCode: appliedCoupon
             })
           }
         );
@@ -601,6 +638,45 @@ export default function CheckoutPage({ cartItems, onClearCart, deliveryChargeEna
                 <span className="text-cocoa font-medium">{formatINR(item.product.price * item.quantity)}</span>
               </div>
             ))}
+          </div>
+
+          {/* Coupon Code Section */}
+          <div className="mt-6 border-t border-truffle/10 pt-4">
+            <label className="text-[10px] font-bold uppercase tracking-[0.15em] text-cocoa/70">Apply Coupon</label>
+            <div className="mt-1.5 flex gap-2">
+              <input
+                type="text"
+                placeholder="PROMOCODE"
+                value={couponCode}
+                onChange={(e) => setCouponCode(e.target.value)}
+                disabled={appliedCoupon !== ""}
+                className="w-full rounded-xl border border-truffle/20 bg-white px-3 py-2 text-sm text-truffle outline-none uppercase placeholder:text-truffle/30 focus:border-cocoa"
+              />
+              {appliedCoupon ? (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setAppliedCoupon("");
+                    setCouponSuccess("");
+                    setCouponCode("");
+                  }}
+                  className="rounded-xl border border-rose-500 bg-rose-50 px-4 py-2 text-xs font-bold text-rose-600 hover:bg-rose-100 transition"
+                >
+                  Remove
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={handleApplyCoupon}
+                  disabled={isApplyingCoupon || !couponCode.trim()}
+                  className="rounded-xl bg-truffle px-4 py-2 text-xs font-bold text-porcelain hover:bg-espresso transition disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {isApplyingCoupon ? "..." : "Apply"}
+                </button>
+              )}
+            </div>
+            {couponError && <p className="mt-1 text-xs text-rose-600 font-semibold">{couponError}</p>}
+            {couponSuccess && <p className="mt-1 text-xs text-emerald-700 font-semibold">{couponSuccess}</p>}
           </div>
           <div className="mt-5 space-y-2 text-truffle/85 text-sm">
             <div className="flex items-center justify-between">

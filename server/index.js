@@ -83,6 +83,7 @@ const PRODUCTS = {
 };
 
 const memoryOrders = new Map();
+const memoryCoupons = new Map();
 const processedPayments = new Set();
 const mongoUri = process.env.MONGODB_URI || "";
 let mongoConnected = false;
@@ -162,6 +163,7 @@ const orderSchema = new mongoose.Schema(
       razorpayOrderId: { type: String, default: "" },
       razorpayPaymentId: { type: String, default: "", index: true }
     },
+    couponCode: { type: String, default: "" },
     status: { type: String, required: true },
     eta: { type: String, required: true },
     createdAt: { type: Date, required: true },
@@ -218,6 +220,16 @@ const adminDeviceTokenSchema = new mongoose.Schema(
 );
 
 const AdminDeviceTokenModel = mongoose.models.AdminDeviceToken || mongoose.model("AdminDeviceToken", adminDeviceTokenSchema);
+
+const couponSchema = new mongoose.Schema(
+  {
+    code: { type: String, required: true, unique: true, uppercase: true, trim: true },
+    isActive: { type: Boolean, default: true }
+  },
+  { timestamps: true, versionKey: false }
+);
+
+const CouponModel = mongoose.models.Coupon || mongoose.model("Coupon", couponSchema);
 
 let deliveryChargeEnabled = true;
 
@@ -682,29 +694,29 @@ async function sendInvoiceEmail(order) {
   }
 }
 
+async function isValidCoupon(code) {
+  if (!code) return false;
+  const cleanCode = String(code).trim().toUpperCase();
+  if (isPersistenceEnabled()) {
+    try {
+      const coupon = await CouponModel.findOne({ code: cleanCode, isActive: true }).lean();
+      return Boolean(coupon);
+    } catch (err) {
+      console.error("Error finding coupon:", err);
+      return false;
+    }
+  } else {
+    const coupon = memoryCoupons.get(cleanCode);
+    return Boolean(coupon && coupon.isActive);
+  }
+}
+
 function isPersistenceEnabled() {
   return mongoConnected;
 }
 
 function getProductById(productId) {
   const cleanId = String(productId || "").trim();
-  if (cleanId.startsWith("custom-box:")) {
-    const parts = cleanId.split(":");
-    const spiceIds = parts[1]?.split(",") || [];
-    let totalPrice = 0;
-    spiceIds.forEach(id => {
-      const p = PRODUCTS[id];
-      if (p) {
-        totalPrice += p.price;
-      }
-    });
-    return {
-      id: cleanId,
-      name: "Custom Anjaraipetti Spice Box",
-      price: totalPrice,
-      stock: 9999
-    };
-  }
   return PRODUCTS[cleanId] || null;
 }
 
@@ -1027,7 +1039,7 @@ function validatePayload(payload, isRazorpayConfirm = false) {
   return { errors, items, method };
 }
 
-async function createFinalOrder({ items, customer, address, payment, userId }) {
+async function createFinalOrder({ items, customer, address, payment, userId, couponCode }) {
   if (!items || items.length === 0) {
     throw new Error("Cart is empty");
   }
@@ -1047,7 +1059,8 @@ async function createFinalOrder({ items, customer, address, payment, userId }) {
   const invoiceNumber = await nextInvoiceNumber();
   const subtotal = processedItems.reduce((sum, item) => sum + item.subtotal, 0);
   const hasTestProduct = processedItems.some(item => item.productId === "test-product" || item.productId.startsWith("test-product"));
-  const deliveryFee = !deliveryChargeEnabled || hasTestProduct ? 0 : (subtotal >= 299 ? 0 : 50);
+  const isCouponValid = await isValidCoupon(couponCode);
+  const deliveryFee = !deliveryChargeEnabled || hasTestProduct || isCouponValid ? 0 : (subtotal >= 299 ? 0 : 50);
   const grandTotal = subtotal + deliveryFee;
   const total = grandTotal;
   const orderId = `ANJ-${crypto.randomBytes(5).toString("hex").toUpperCase()}`;
@@ -1063,6 +1076,7 @@ async function createFinalOrder({ items, customer, address, payment, userId }) {
     customer,
     address,
     payment,
+    couponCode: isCouponValid ? couponCode.trim().toUpperCase() : "",
     status: "Order confirmed",
     eta: "2 - 4 business days",
     createdAt: new Date().toISOString()
@@ -1071,17 +1085,7 @@ async function createFinalOrder({ items, customer, address, payment, userId }) {
   await saveOrder(order);
   
   processedItems.forEach(item => {
-    if (item.productId.startsWith("custom-box:")) {
-      const parts = item.productId.split(":");
-      const spiceIds = parts[1]?.split(",") || [];
-      spiceIds.forEach(id => {
-        if (inventoryByProduct[id] !== undefined) {
-          inventoryByProduct[id] = Math.max(0, Number(inventoryByProduct[id] ?? 0) - item.quantity);
-        }
-      });
-    } else {
-      inventoryByProduct[item.productId] = Math.max(0, Number(inventoryByProduct[item.productId] ?? 0) - item.quantity);
-    }
+    inventoryByProduct[item.productId] = Math.max(0, Number(inventoryByProduct[item.productId] ?? 0) - item.quantity);
   });
   await persistState();
   broadcastState();
@@ -1729,6 +1733,81 @@ app.post("/api/admin/settings/delivery", requireAdminAuth, async (req, res) => {
   }
 });
 
+app.get("/api/admin/coupons", requireAdminAuth, async (req, res) => {
+  try {
+    let coupons = [];
+    if (isPersistenceEnabled()) {
+      coupons = await CouponModel.find({}).sort({ createdAt: -1 }).lean();
+    } else {
+      coupons = Array.from(memoryCoupons.values()).sort((a, b) => b.createdAt - a.createdAt);
+    }
+    return res.json({ ok: true, coupons });
+  } catch (err) {
+    console.error("Get coupons error:", err);
+    return res.status(500).json({ ok: false, message: "Failed to retrieve coupons" });
+  }
+});
+
+app.post("/api/admin/coupons", requireAdminAuth, async (req, res) => {
+  const { code } = req.body;
+  if (!code || typeof code !== "string" || !code.trim()) {
+    return res.status(400).json({ ok: false, message: "Coupon code is required" });
+  }
+  const cleanCode = code.trim().toUpperCase();
+  try {
+    if (isPersistenceEnabled()) {
+      const existing = await CouponModel.findOne({ code: cleanCode });
+      if (existing) {
+        return res.status(400).json({ ok: false, message: "Coupon code already exists" });
+      }
+      await CouponModel.create({ code: cleanCode, isActive: true });
+    } else {
+      if (memoryCoupons.has(cleanCode)) {
+        return res.status(400).json({ ok: false, message: "Coupon code already exists" });
+      }
+      memoryCoupons.set(cleanCode, { code: cleanCode, isActive: true, createdAt: new Date() });
+    }
+    return res.json({ ok: true, message: "Coupon created successfully" });
+  } catch (err) {
+    console.error("Create coupon error:", err);
+    return res.status(500).json({ ok: false, message: "Failed to create coupon" });
+  }
+});
+
+app.delete("/api/admin/coupons/:code", requireAdminAuth, async (req, res) => {
+  const code = String(req.params.code || "").trim().toUpperCase();
+  try {
+    if (isPersistenceEnabled()) {
+      const result = await CouponModel.findOneAndDelete({ code });
+      if (!result) {
+        return res.status(404).json({ ok: false, message: "Coupon not found" });
+      }
+    } else {
+      if (!memoryCoupons.has(code)) {
+        return res.status(404).json({ ok: false, message: "Coupon not found" });
+      }
+      memoryCoupons.delete(code);
+    }
+    return res.json({ ok: true, message: "Coupon deleted successfully" });
+  } catch (err) {
+    console.error("Delete coupon error:", err);
+    return res.status(500).json({ ok: false, message: "Failed to delete coupon" });
+  }
+});
+
+app.post("/api/coupons/validate", async (req, res) => {
+  const { code } = req.body;
+  if (!code) {
+    return res.status(400).json({ ok: false, message: "Coupon code is required" });
+  }
+  const isValid = await isValidCoupon(code);
+  if (isValid) {
+    return res.json({ ok: true, valid: true, message: "Free delivery coupon applied successfully!" });
+  } else {
+    return res.status(400).json({ ok: false, valid: false, message: "Invalid or inactive coupon code" });
+  }
+});
+
 app.get("/api/products/prices", (req, res) => {
   const prices = {};
   Object.keys(PRODUCTS).forEach((id) => {
@@ -1802,7 +1881,8 @@ app.post("/api/orders", async (req, res) => {
         method: "cod",
         status: "Pay on delivery"
       },
-      userId
+      userId,
+      couponCode: req.body.couponCode
     });
 
     return res.json({ ok: true, order });
@@ -1898,7 +1978,8 @@ app.post("/api/payments/razorpay/order", async (req, res) => {
 
   // Calculate and add delivery charge!
   const hasTestProduct = items.some(item => item.productId === "test-product" || item.productId.startsWith("test-product"));
-  const deliveryFee = !deliveryChargeEnabled || hasTestProduct ? 0 : (totalAmount >= 299 ? 0 : 50);
+  const isCouponValid = await isValidCoupon(req.body.couponCode);
+  const deliveryFee = !deliveryChargeEnabled || hasTestProduct || isCouponValid ? 0 : (totalAmount >= 299 ? 0 : 50);
   totalAmount += deliveryFee;
 
   try {
@@ -1990,7 +2071,8 @@ app.post("/api/orders/razorpay/confirm", async (req, res) => {
         razorpayOrderId,
         razorpayPaymentId
       },
-      userId
+      userId,
+      couponCode: req.body.couponCode
     });
     processedPayments.add(razorpayPaymentId);
     return res.json({ ok: true, order });

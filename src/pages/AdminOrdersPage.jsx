@@ -869,6 +869,97 @@ export default function AdminOrdersPage() {
     }
   };
 
+  const [coupons, setCoupons] = useState([]);
+  const [newCouponCode, setNewCouponCode] = useState("");
+  const [creatingCoupon, setCreatingCoupon] = useState(false);
+
+  const fetchCoupons = async () => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/admin/coupons`, {
+        headers: {
+          Authorization: `Bearer ${adminToken}`
+        }
+      });
+      const data = await response.json();
+      if (response.status === 401 || response.status === 403) {
+        localStorage.removeItem(ADMIN_TOKEN_KEY);
+        navigate("/admin/login", { replace: true });
+        return;
+      }
+      if (response.ok && data.ok) {
+        setCoupons(data.coupons || []);
+      }
+    } catch (err) {
+      console.error("Failed to fetch coupons:", err);
+    }
+  };
+
+  const handleCreateCoupon = async (e) => {
+    e.preventDefault();
+    if (!newCouponCode.trim()) return;
+    setCreatingCoupon(true);
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/admin/coupons`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${adminToken}`
+        },
+        body: JSON.stringify({ code: newCouponCode.trim() })
+      });
+      const data = await response.json();
+      if (response.status === 401 || response.status === 403) {
+        localStorage.removeItem(ADMIN_TOKEN_KEY);
+        navigate("/admin/login", { replace: true });
+        return;
+      }
+      if (response.ok && data.ok) {
+        setNewCouponCode("");
+        fetchCoupons();
+      } else {
+        alert(data.message || "Failed to create coupon");
+      }
+    } catch (err) {
+      console.error(err);
+      alert("Error creating coupon");
+    } finally {
+      setCreatingCoupon(false);
+    }
+  };
+
+  const handleDeleteCoupon = async (code) => {
+    const shouldDelete = window.confirm(`Delete coupon ${code}?`);
+    if (!shouldDelete) return;
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/admin/coupons/${code}`, {
+        method: "DELETE",
+        headers: {
+          Authorization: `Bearer ${adminToken}`
+        }
+      });
+      const data = await response.json();
+      if (response.status === 401 || response.status === 403) {
+        localStorage.removeItem(ADMIN_TOKEN_KEY);
+        navigate("/admin/login", { replace: true });
+        return;
+      }
+      if (response.ok && data.ok) {
+        fetchCoupons();
+      } else {
+        alert(data.message || "Failed to delete coupon");
+      }
+    } catch (err) {
+      console.error(err);
+      alert("Error deleting coupon");
+    }
+  };
+
+  useEffect(() => {
+    if (activeTab === "coupons" && adminToken) {
+      fetchCoupons();
+    }
+  }, [activeTab, adminToken]);
+
   useEffect(() => {
     if (!adminToken) {
       navigate("/admin/login", { replace: true });
@@ -1051,7 +1142,7 @@ export default function AdminOrdersPage() {
         <div>
           <p className="text-xs uppercase tracking-[0.3em] text-cocoa/70">Admin Panel</p>
           <h1 className="mt-2 font-display text-5xl text-espresso">
-            {activeTab === "orders" ? "All Orders" : activeTab === "stats" ? "Business Insights" : "Manage Prices"}
+            {activeTab === "orders" ? "All Orders" : activeTab === "stats" ? "Business Insights" : activeTab === "coupons" ? "Manage Coupons" : "Manage Prices"}
           </h1>
         </div>
         <button
@@ -1097,6 +1188,17 @@ export default function AdminOrdersPage() {
           }`}
         >
           Manage Prices
+        </button>
+        <button
+          type="button"
+          onClick={() => setActiveTab("coupons")}
+          className={`pb-2 text-sm font-semibold uppercase tracking-[0.2em] transition-all border-b-2 ${
+            activeTab === "coupons"
+              ? "border-cocoa text-cocoa font-bold"
+              : "border-transparent text-truffle/60 hover:text-truffle"
+          }`}
+        >
+          Coupons
         </button>
       </div>
 
@@ -1943,6 +2045,64 @@ export default function AdminOrdersPage() {
           </div>
 
 
+        </div>
+      ) : activeTab === "coupons" ? (
+        <div className="max-w-2xl mx-auto space-y-6">
+          <motion.div
+            initial={{ opacity: 0, y: 15 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="rounded-3xl border border-truffle/10 bg-white/75 p-6 shadow-luxe backdrop-blur-xl"
+          >
+            <h3 className="font-display text-2xl text-truffle mb-4">Create New Coupon</h3>
+            <form onSubmit={handleCreateCoupon} className="flex flex-col sm:flex-row gap-4">
+              <div className="flex-1">
+                <input
+                  type="text"
+                  placeholder="e.g. FREESHIP50"
+                  value={newCouponCode}
+                  onChange={(e) => setNewCouponCode(e.target.value.toUpperCase())}
+                  className="w-full rounded-xl border border-truffle/20 bg-white px-4 py-3 text-sm text-truffle outline-none focus:border-cocoa"
+                />
+              </div>
+              <button
+                type="submit"
+                disabled={creatingCoupon || !newCouponCode.trim()}
+                className="rounded-xl bg-cocoa text-white px-6 py-3 text-xs font-bold uppercase tracking-wider hover:bg-cocoa/90 transition disabled:opacity-50"
+              >
+                {creatingCoupon ? "Creating..." : "Create Coupon"}
+              </button>
+            </form>
+          </motion.div>
+
+          <motion.div
+            initial={{ opacity: 0, y: 15 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.05 }}
+            className="rounded-3xl border border-truffle/10 bg-white/75 p-6 shadow-luxe backdrop-blur-xl"
+          >
+            <h3 className="font-display text-2xl text-truffle mb-4">Active Coupons</h3>
+            {coupons.length === 0 ? (
+              <p className="text-sm text-truffle/60 italic">No coupons created yet. Create one above!</p>
+            ) : (
+              <div className="divide-y divide-truffle/10">
+                {coupons.map((coupon) => (
+                  <div key={coupon.code} className="py-4 flex items-center justify-between">
+                    <div>
+                      <span className="font-mono text-lg font-bold text-cocoa uppercase tracking-wider">{coupon.code}</span>
+                      <p className="text-[10px] text-truffle/55 uppercase font-bold tracking-wider mt-1">Free Delivery Coupon</p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => handleDeleteCoupon(coupon.code)}
+                      className="rounded-xl border border-red-200 bg-red-50 hover:bg-red-100 px-4 py-2 text-xs font-bold uppercase tracking-wider text-red-700 transition"
+                    >
+                      Delete
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </motion.div>
         </div>
       ) : (
         <>

@@ -117,10 +117,22 @@ export default function InvoiceDocument({ order }) {
             <span className="font-medium">Subtotal</span>
             <span className="font-medium">{formatINR(subtotal)}</span>
           </div>
-          {grandTotal - subtotal > 0 && (
+          {(grandTotal - subtotal > 0 || order.couponCode) && (
             <div className="flex items-center justify-between text-sm text-truffle mt-2">
               <span className="font-medium">Delivery Fee</span>
-              <span className="font-medium">{formatINR(grandTotal - subtotal)}</span>
+              <span className="font-medium">
+                {order.couponCode ? (
+                  <span className="text-emerald-600 font-bold">FREE</span>
+                ) : (
+                  formatINR(grandTotal - subtotal)
+                )}
+              </span>
+            </div>
+          )}
+          {order.couponCode && (
+            <div className="flex items-center justify-between text-xs text-emerald-700 mt-2 bg-emerald-50 border border-emerald-200/50 rounded-lg px-2.5 py-1">
+              <span className="font-semibold">Coupon Applied</span>
+              <span className="font-mono font-bold uppercase tracking-wider">{order.couponCode}</span>
             </div>
           )}
           <div className="my-4 border-t border-dashed border-truffle/20" />

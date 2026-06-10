@@ -17,7 +17,6 @@ import ProductsPage from "./pages/ProductsPage";
 import RecipePage from "./pages/RecipePage";
 import MyOrdersPage from "./pages/MyOrdersPage";
 import ProfilePage from "./pages/ProfilePage";
-import SpiceBoxBuilder from "./pages/SpiceBoxBuilder";
 import RecipeCompanion from "./pages/RecipeCompanion";
 
 const ingredients = [
@@ -230,32 +229,6 @@ export default function App() {
       return null;
     }
     const cleanId = String(productId || "").trim();
-    if (cleanId.startsWith("custom-box:")) {
-      const parts = cleanId.split(":");
-      const spiceIds = parts[1]?.split(",") || [];
-      const spiceNames = [];
-      let totalPrice = 0;
-      spiceIds.forEach(id => {
-        const p = getDynamicProductById(id);
-        if (p) {
-          spiceNames.push(p.name.replace("Namma Veetu Anjaraipetti ", ""));
-          totalPrice += p.price;
-        } else {
-          spiceNames.push(id);
-        }
-      });
-      return {
-        id: cleanId,
-        name: "Custom Anjaraipetti Spice Box",
-        price: totalPrice,
-        size: `${spiceIds.length} Blends`,
-        subtitle: "7-Blend Custom Anjaraipetti Box",
-        description: `Customized with: ${spiceNames.join(", ")}`,
-        image: "/images/combo-box.jpg",
-        isCustomBox: true,
-        selectedSpices: spiceIds
-      };
-    }
     for (const product of dynamicProducts) {
       if (product.id === cleanId) {
         return {
@@ -328,7 +301,6 @@ export default function App() {
         />
         <Route path="/order/:orderId" element={<OrderSuccessPage />} />
         <Route path="/recipe/:productId" element={<RecipePage />} />
-        <Route path="/spice-builder" element={<SpiceBoxBuilder onAddToCart={addToCart} />} />
         <Route path="/recipe-companion" element={<RecipeCompanion onAddMultipleToCart={addMultipleToCart} />} />
         <Route path="/my-orders" element={<MyOrdersPage onAddMultipleToCart={addMultipleToCart} />} />
         <Route path="/profile" element={<ProfilePage />} />
