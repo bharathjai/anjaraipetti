@@ -12,7 +12,8 @@ const recipes = [
     description: "A fiery, aromatic classic from Tamil Nadu featuring deep slow-roasted black pepper and chicken chunks.",
     spicesNeeded: [
       { id: "pepper-powder-50g", name: "Pepper Powder (50g)", quantity: 1, price: 99 },
-      { id: "chicken-masala-50g", name: "Chicken Masala (50g)", quantity: 1, price: 85 }
+      { id: "chicken-masala-50g", name: "Chicken Masala (50g)", quantity: 1, price: 85 },
+      { id: "kolambu-powder-100g", name: "Chilly Powder (100g)", quantity: 1, price: 79 }
     ]
   },
   {
@@ -24,7 +25,8 @@ const recipes = [
     description: "A rich, comforting lentil curry with fresh seasonal vegetables and traditional stone-ground coriander.",
     spicesNeeded: [
       { id: "sambar-masala-50g", name: "Sambar Masala (50g)", quantity: 1, price: 1 },
-      { id: "coriander-powder-50g", name: "Coriander Powder (50g)", quantity: 1, price: 49 }
+      { id: "coriander-powder-50g", name: "Coriander Powder (50g)", quantity: 1, price: 49 },
+      { id: "kolambu-powder-100g", name: "Chilly Powder (100g)", quantity: 1, price: 79 }
     ]
   },
   {
@@ -37,7 +39,8 @@ const recipes = [
     spicesNeeded: [
       { id: "biryani-masala-50g", name: "Biryani Masala (50g)", quantity: 1, price: 75 },
       { id: "garam-masala-50g", name: "Garam Masala (50g)", quantity: 1, price: 85 },
-      { id: "jeera-powder-50g", name: "Jeera Powder (50g)", quantity: 1, price: 55 }
+      { id: "jeera-powder-50g", name: "Jeera Powder (50g)", quantity: 1, price: 55 },
+      { id: "kolambu-powder-100g", name: "Chilly Powder (100g)", quantity: 1, price: 79 }
     ]
   },
   {
@@ -49,7 +52,8 @@ const recipes = [
     description: "Crispy-fried fish fillets coated with a bold, tangy layer of hand-blended fish fry spices.",
     spicesNeeded: [
       { id: "fish-fry-masala-50g", name: "Fish Fry Masala (50g)", quantity: 1, price: 49 },
-      { id: "pepper-powder-50g", name: "Pepper Powder (50g)", quantity: 1, price: 99 }
+      { id: "pepper-powder-50g", name: "Pepper Powder (50g)", quantity: 1, price: 99 },
+      { id: "kolambu-powder-100g", name: "Chilly Powder (100g)", quantity: 1, price: 79 }
     ]
   },
   {
@@ -73,7 +77,8 @@ const recipes = [
     description: "Tender pieces of mutton cooked in a rich, slow-simmered onion-tomato gravy with warm garam masala spices.",
     spicesNeeded: [
       { id: "mutton-masala-50g", name: "Mutton Masala (50g)", quantity: 1, price: 85 },
-      { id: "garam-masala-50g", name: "Garam Masala (50g)", quantity: 1, price: 85 }
+      { id: "garam-masala-50g", name: "Garam Masala (50g)", quantity: 1, price: 85 },
+      { id: "kolambu-powder-100g", name: "Chilly Powder (100g)", quantity: 1, price: 79 }
     ]
   }
 ];
